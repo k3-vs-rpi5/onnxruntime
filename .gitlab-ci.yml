@@ -1,0 +1,38 @@
+# onnxruntime CI — riscv64 编译，产物 ort-installed/ 供下游 spacemit-ep 多级流水线消费
+#
+# 分支切换：默认使用当前 pipeline ref；手动触发或 Pipeline Schedule 可通过 ORT_BRANCH 覆盖
+
+include:
+  - project: 'ai/gitlab-ci-templates'
+    file:
+      - 'x86-host-env.yml'
+
+stages:
+  - build
+
+build-rv64:
+  extends: .x86-host-ci-env
+  rules:
+  - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+  - if: '$CI_PIPELINE_SOURCE == "trigger"'
+  - if: '$CI_PIPELINE_SOURCE == "pipeline"'
+  stage: build
+  tags:
+    - 92_13_host
+  variables:
+    RISCV_ROOT_PATH: $DEFAULT_RISCV_ROOT_PATH
+    CMAKE_TLS_VERIFY: 0
+  script:
+    # ── 0. 准备构建参数 ──
+    - ORI_INSTALL_DIR="$CI_PROJECT_DIR/build/Linux/rv64/Release/installed"
+    - INSTALL_DIR="${SHARE_INSTALL_DIR}/build-rv64/installed"
+
+    # - 'echo "hello world"'
+    # - 'exit 0'
+    # ── 1. 决定是否 native 构建 (native → python bindings) ──
+
+    - bash ./tools/scripts/build_riscv64.spacemit.sh $CI_PROJECT_DIR rv64 Release
+    - test -d "$ORI_INSTALL_DIR"
+    - mkdir -p "$INSTALL_DIR"
+    - cp -a "$ORI_INSTALL_DIR"/. "$INSTALL_DIR"/
