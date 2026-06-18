@@ -1,43 +1,74 @@
 #!/bin/bash
-# bash build_riscv64.spacemit.sh <onnxruntime_src_dir> <arch> <config>,
-# arch is x86 or rv64, config is Release or RelWithDebInfo or Debug
+# bash build_riscv64.spacemit.sh <onnxruntime_src_dir> <arch> <config> [os] [cc]
+# arch:   x86 | rv64
+# config: Release | RelWithDebInfo | Debug
+# os:     Linux (default) | OHOS
+# cc:     gcc (default) | clang
 # before run this script, please ensure that RISCV_ROOT_PATH is set to the path of riscv toolchain
 # https://archive.spacemit.com/toolchain/spacemit-toolchain-linux-glibc-x86_64-v1.1.2.tar.xz
 
-ARCH=$(uname -m)
-MATCH_ARCH=""
-if [ "${ARCH}" = "x86_64" ]; then
-    MATCH_ARCH="x86"
-    elif [ "${ARCH}" = "riscv64" ]; then
-    MATCH_ARCH="rv64"
+ORT_SRC=${1}
+ARCH_ARG=${2}
+CONFIG=${3}
+OS=${4:-Linux}
+CC=${5:-gcc}
+
+if [[ "$OS" != "Linux" && "$OS" != "OHOS" ]]; then
+    echo "Error: os must be Linux or OHOS" >&2; exit 1
+fi
+if [[ "$CC" != "gcc" && "$CC" != "clang" ]]; then
+    echo "Error: cc must be gcc or clang" >&2; exit 1
 fi
 
-EXTERN_ARGS=
-BUILD_ARGS="--build_micro_benchmarks"
+# Detect host arch for native-build check
+HOST_ARCH=$(uname -m)
+MATCH_ARCH=""
+[ "$HOST_ARCH" = "x86_64" ] && MATCH_ARCH="x86"
+[ "$HOST_ARCH" = "riscv64" ] && MATCH_ARCH="rv64"
 
-if [ "${2}" = "${MATCH_ARCH}" ]; then
+# Build directory: append -clang suffix when using clang
+if [ "$CC" = "clang" ]; then
+    BUILD_DIR=${ORT_SRC}/build/${OS}/${ARCH_ARG}-clang
+else
+    BUILD_DIR=${ORT_SRC}/build/${OS}/${ARCH_ARG}
+fi
+
+BUILD_ARGS="--build_micro_benchmarks"
+EXTERN_ARGS=""
+
+# Native build: enable python bindings; Linux+gcc native rv64 skips micro benchmarks
+if [ "$ARCH_ARG" = "$MATCH_ARCH" ]; then
     echo "BUILD ORT With Python"
-    EXTERN_ARGS="${EXTERN_ARGS} --enable_pybind --build_wheel"
-    if [ "${2}" = "rv64" ]; then
+    EXTERN_ARGS="--enable_pybind --build_wheel"
+    if [ "$ARCH_ARG" = "rv64" ]; then
         BUILD_ARGS="--skip_onnx_tests"
     fi
 fi
 
-BUILD_DIR=${1}/build/Linux/${2}
+# Toolchain flags: always except Linux+gcc cross-compiling non-rv64
+if [ "$ARCH_ARG" = "rv64" ]; then
+    BUILD_ARGS="${BUILD_ARGS} --${ARCH_ARG} --riscv_toolchain_root=${RISCV_ROOT_PATH}"
+fi
+
+# OS-specific flags
+if [ "$OS" = "OHOS" ]; then
+    BUILD_ARGS="${BUILD_ARGS} --build_ohos"
+fi
+
+# CC-specific flags
+if [ "$CC" = "clang" ]; then
+    BUILD_ARGS="${BUILD_ARGS} --riscv_use_clang"
+fi
 
 EXTERN_ARGS="${EXTERN_ARGS} \
     --cmake_extra_defines \
     onnxruntime_DEBUG_NODE_INPUTS_OUTPUTS=ON \
     CMAKE_INSTALL_PREFIX=installed"
 
-if [ "${2}" = "rv64" ]; then
-    BUILD_ARGS="${BUILD_ARGS} --${2} --riscv_toolchain_root=${RISCV_ROOT_PATH}"
-fi
-
 echo "BUILD_ARGS: ${BUILD_ARGS}"
 echo "EXTERN_ARGS: ${EXTERN_ARGS}"
 
-python3 ${1}/tools/ci_build/build.py --build_dir ${BUILD_DIR} --config ${3} \
+python3 ${ORT_SRC}/tools/ci_build/build.py --build_dir ${BUILD_DIR} --config ${CONFIG} \
     --update --build --build_shared_lib --parallel 20 \
     --compile_no_warning_as_error --allow_running_as_root \
     ${BUILD_ARGS} \
@@ -46,6 +77,6 @@ python3 ${1}/tools/ci_build/build.py --build_dir ${BUILD_DIR} --config ${3} \
     --skip_tests \
     ${EXTERN_ARGS}
 
-pushd ${BUILD_DIR}/${3}
+pushd ${BUILD_DIR}/${CONFIG}
     make install
 popd

@@ -78,30 +78,30 @@ MlasGemmQuantCopyPackA_impl(typename MLAS_GEMM_X8X8_KERNEL_IME_TYPE::PackedAType
         int32_t RowSum = 0;
         const uint8_t *a = A;
         __asm__ volatile(
-            "vsetvli       t0,       x0,       e32,         m1\t\n"
+            "vsetvli      t0,     x0,           e32, m1, tu, mu\n\t"
 
-            "vmv.v.x       v4,       zero                   \t\n"
-            "addi          t1,       %[k],     0            \t\n"
-            "addi          t2,       %[b],     0            \t\n"
-            "srli          t3,       %[aligned_k], 3        \n\t"
+            "vmv.v.x      v4,     zero                         \n\t"
+            "addi         t1,     %[k],         0              \n\t"
+            "addi         t2,     %[b],         0              \n\t"
+            "srli         t3,     %[aligned_k], 3              \n\t"
 
-            "LOOP%=:                                        \t\n"
-            "vsetvli       t0,       t1,       e8,          m4\t\n"
-            "vle8.v        v0,       (%[a])                 \t\n"
-            "add           %[a],     %[a],     t0           \t\n"
-            "vxor.vx       v0,       v0,       %[f]         \t\n"
-            "vsetvli       t0,       t1,       e16,         m8\t\n"
-            "vzext.vf2     v8,       v0                     \t\n"
-            "vwredsumu.vs  v4,       v8,       v4           \t\n"
-            "sub           t1,       t1,       t0           \t\n"
+            "LOOP%=:                                           \n\t"
+            "vsetvli      t0,     t1,           e8,  m4, tu, mu\n\t"
+            "vle8.v       v0,     (%[a])                       \n\t"
+            "add          %[a],   %[a],         t0             \n\t"
+            "vxor.vx      v0,     v0,           %[f]           \n\t"
+            "vsetvli      t0,     t1,           e16, m8, tu, mu\n\t"
+            "vzext.vf2    v8,     v0                           \n\t"
+            "vwredsumu.vs v4,     v8,           v4             \n\t"
+            "sub          t1,     t1,           t0             \n\t"
 
-            "vsetvli       t0,       t3,       e64,         m4\t\n"
-            "vsse64.v      v0,       (t2),     %[s]         \t\n"
-            "mul           t0,       t0,       %[s]         \n\t"
-            "add           t2,       t2,       t0           \n\t"
+            "vsetvli      t0,     t3,           e64, m4, tu, mu\n\t"
+            "vsse64.v     v0,     (t2),         %[s]           \n\t"
+            "mul          t0,     t0,           %[s]           \n\t"
+            "add          t2,     t2,           t0             \n\t"
 
-            "bnez          t1,       LOOP%=                 \t\n"
-            "vmv.x.s       %[sum],   v4                     \t\n"
+            "bnez         t1,     LOOP%=                       \n\t"
+            "vmv.x.s      %[sum], v4                           \n\t"
             : [ a ] "+r"(a), [ sum ] "+r"(RowSum)
             : [ k ] "r"(CountK), [ aligned_k ] "r"(AlignedCountK), [ f ] "r"(BitFlipValue), [ b ] "r"(D),
               [ s ] "r"(Stride)
@@ -148,19 +148,19 @@ MlasGemmQuantCopyPackB_impl(typename MLAS_GEMM_X8X8_KERNEL_IME_TYPE::PackedBType
     auto b = B;
     auto StrideDiff = ldb - CountN;
     __asm__ volatile(
-        "addi          t1,       %[k],     0            \t\n"
-        "LOOPK%=:                                       \t\n"
-        "addi          t1,       t1,       -1           \t\n"
-        "addi          t2,       %[n],     0            \t\n"
+        "addi    t1,   %[k],   0               \n\t"
+        "LOOPK%=:                              \n\t"
+        "addi    t1,   t1,     -1              \n\t"
+        "addi    t2,   %[n],   0               \n\t"
 
-        "LOOPN%=:                                       \t\n"
-        "vsetvli       t0,       t2,       e8,          m4\t\n"
-        "vle8.v        v0,       (%[b])                 \t\n"
-        "add           %[b],     %[b],     t0           \t\n"
-        "sub           t2,       t2,       t0           \t\n"
-        "bnez          t2,       LOOPN%=                \t\n"
-        "add           %[b],     %[b],     %[sd]        \t\n"
-        "bnez          t1,       LOOPK%=                \t\n"
+        "LOOPN%=:                              \n\t"
+        "vsetvli t0,   t2,     e8,   m4, tu, mu\n\t"
+        "vle8.v  v0,   (%[b])                  \n\t"
+        "add     %[b], %[b],   t0              \n\t"
+        "sub     t2,   t2,     t0              \n\t"
+        "bnez    t2,   LOOPN%=                 \n\t"
+        "add     %[b], %[b],   %[sd]           \n\t"
+        "bnez    t1,   LOOPK%=                 \n\t"
         : [ b ] "+r"(b)
         : [ k ] "r"(CountK), [ n ] "r"(CountN), [ sd ] "r"(StrideDiff)
         : "cc", "t0", "t1", "t2");
@@ -213,190 +213,190 @@ MlasGemmQuantCopyPackB_impl(typename MLAS_GEMM_X8X8_KERNEL_IME_TYPE::PackedBType
         MlasGemmQuantCopyPackB_impl<TYPE>(D, B, ldb, CountN, CountK, ColumnSumBuffer, BIsSigned);         \
     }
 
-#define KERNEL8x8x16_I                                      \
-    "vle32.v        v8,         (t1)                  \n\t" \
-    "addi           t1,         t1,         4*4*8     \n\t" \
-    "vle32.v        v9,         (t2)                  \n\t" \
-    "addi           t2,         t2,         4*4*8     \n\t" \
-    "vle32.v        v10,        (t3)                  \n\t" \
-    "addi           t3,         t3,         4*4*8     \n\t" \
-    "vle32.v        v11,        (t4)                  \n\t" \
-    "addi           t4,         t4,         4*4*8     \n\t" \
-                                                            \
-    "vle32.v        v0,         (s1)                  \n\t" \
-    "addi           s1,         s1,         8*4*8     \n\t" \
-    "vle32.v        v1,         (s2)                  \n\t" \
-    "addi           s2,         s2,         8*4*8     \n\t" \
-    "vle32.v        v2,         (s3)                  \n\t" \
-    "addi           s3,         s3,         8*4*8     \n\t" \
-    "vle32.v        v3,         (s4)                  \n\t" \
-    "addi           s4,         s4,         8*4*8     \n\t" \
-    "vle32.v        v4,         (s5)                  \n\t" \
-    "addi           s5,         s5,         8*4*8     \n\t" \
-    "vle32.v        v5,         (s6)                  \n\t" \
-    "addi           s6,         s6,         8*4*8     \n\t" \
-    "vle32.v        v6,         (s7)                  \n\t" \
-    "addi           s7,         s7,         8*4*8     \n\t" \
-    "vle32.v        v7,         (s8)                  \n\t" \
-    "addi           s8,         s8,         8*4*8     \n\t" \
-                                                            \
-    "vle32.v        v12,        (t1)                  \n\t" \
-    "addi           t1,         t1,         4*4*8     \n\t" \
-    "vle32.v        v13,        (t2)                  \n\t" \
-    "addi           t2,         t2,         4*4*8     \n\t" \
-    "vle32.v        v14,        (t3)                  \n\t" \
-    "addi           t3,         t3,         4*4*8     \n\t" \
-                                                            \
-    "vmadotu        v16,        v8,         v0        \n\t" \
-    "vmadotu        v24,        v9,         v0        \n\t" \
-    "vle32.v        v15,        (t4)                  \n\t" \
-    "addi           t4,         t4,         4*4*8     \n\t" \
-    "vmadotu        v18,        v8,         v1        \n\t" \
-    "vmadotu        v26,        v9,         v1        \n\t" \
-    "vle32.v        v0,         (s1)                  \n\t" \
-    "addi           s1,         s1,         8*4*8     \n\t" \
-    "vmadotu        v20,        v8,         v2        \n\t" \
-    "vmadotu        v28,        v9,         v2        \n\t" \
-    "vle32.v        v1,         (s2)                  \n\t" \
-    "addi           s2,         s2,         8*4*8     \n\t" \
-    "vmadotu        v22,        v8,         v3        \n\t" \
-    "vmadotu        v30,        v9,         v3        \n\t" \
-    "vle32.v        v2,         (s3)                  \n\t" \
-    "addi           s3,         s3,         8*4*8     \n\t"
+#define KERNEL8x8x16_I            \
+    "vle32.v v8,  (t1)      \n\t" \
+    "addi    t1,  t1,  4*4*8\n\t" \
+    "vle32.v v9,  (t2)      \n\t" \
+    "addi    t2,  t2,  4*4*8\n\t" \
+    "vle32.v v10, (t3)      \n\t" \
+    "addi    t3,  t3,  4*4*8\n\t" \
+    "vle32.v v11, (t4)      \n\t" \
+    "addi    t4,  t4,  4*4*8\n\t" \
+                                  \
+    "vle32.v v0,  (s1)      \n\t" \
+    "addi    s1,  s1,  8*4*8\n\t" \
+    "vle32.v v1,  (s2)      \n\t" \
+    "addi    s2,  s2,  8*4*8\n\t" \
+    "vle32.v v2,  (s3)      \n\t" \
+    "addi    s3,  s3,  8*4*8\n\t" \
+    "vle32.v v3,  (s4)      \n\t" \
+    "addi    s4,  s4,  8*4*8\n\t" \
+    "vle32.v v4,  (s5)      \n\t" \
+    "addi    s5,  s5,  8*4*8\n\t" \
+    "vle32.v v5,  (s6)      \n\t" \
+    "addi    s6,  s6,  8*4*8\n\t" \
+    "vle32.v v6,  (s7)      \n\t" \
+    "addi    s7,  s7,  8*4*8\n\t" \
+    "vle32.v v7,  (s8)      \n\t" \
+    "addi    s8,  s8,  8*4*8\n\t" \
+                                  \
+    "vle32.v v12, (t1)      \n\t" \
+    "addi    t1,  t1,  4*4*8\n\t" \
+    "vle32.v v13, (t2)      \n\t" \
+    "addi    t2,  t2,  4*4*8\n\t" \
+    "vle32.v v14, (t3)      \n\t" \
+    "addi    t3,  t3,  4*4*8\n\t" \
+                                  \
+    "vmadotu v16, v8,  v0   \n\t" \
+    "vmadotu v24, v9,  v0   \n\t" \
+    "vle32.v v15, (t4)      \n\t" \
+    "addi    t4,  t4,  4*4*8\n\t" \
+    "vmadotu v18, v8,  v1   \n\t" \
+    "vmadotu v26, v9,  v1   \n\t" \
+    "vle32.v v0,  (s1)      \n\t" \
+    "addi    s1,  s1,  8*4*8\n\t" \
+    "vmadotu v20, v8,  v2   \n\t" \
+    "vmadotu v28, v9,  v2   \n\t" \
+    "vle32.v v1,  (s2)      \n\t" \
+    "addi    s2,  s2,  8*4*8\n\t" \
+    "vmadotu v22, v8,  v3   \n\t" \
+    "vmadotu v30, v9,  v3   \n\t" \
+    "vle32.v v2,  (s3)      \n\t" \
+    "addi    s3,  s3,  8*4*8\n\t"
 
-#define KERNEL8x8x16_M1                                     \
-    "vmadotu        v16,        v8,         v0        \n\t" \
-    "vmadotu        v24,        v9,         v0        \n\t" \
-    "vle32.v        v15,        (t4)                  \n\t" \
-    "addi           t4,         t4,         4*4*8     \n\t" \
-    "vmadotu        v18,        v8,         v1        \n\t" \
-    "vmadotu        v26,        v9,         v1        \n\t" \
-    "vle32.v        v0,         (s1)                  \n\t" \
-    "addi           s1,         s1,         8*4*8     \n\t" \
-    "vmadotu        v20,        v8,         v2        \n\t" \
-    "vmadotu        v28,        v9,         v2        \n\t" \
-    "vle32.v        v1,         (s2)                  \n\t" \
-    "addi           s2,         s2,         8*4*8     \n\t" \
-    "vmadotu        v22,        v8,         v3        \n\t" \
-    "vmadotu        v30,        v9,         v3        \n\t" \
-    "vle32.v        v2,         (s3)                  \n\t" \
-    "addi           s3,         s3,         8*4*8     \n\t"
+#define KERNEL8x8x16_M1           \
+    "vmadotu v16, v8,  v0   \n\t" \
+    "vmadotu v24, v9,  v0   \n\t" \
+    "vle32.v v15, (t4)      \n\t" \
+    "addi    t4,  t4,  4*4*8\n\t" \
+    "vmadotu v18, v8,  v1   \n\t" \
+    "vmadotu v26, v9,  v1   \n\t" \
+    "vle32.v v0,  (s1)      \n\t" \
+    "addi    s1,  s1,  8*4*8\n\t" \
+    "vmadotu v20, v8,  v2   \n\t" \
+    "vmadotu v28, v9,  v2   \n\t" \
+    "vle32.v v1,  (s2)      \n\t" \
+    "addi    s2,  s2,  8*4*8\n\t" \
+    "vmadotu v22, v8,  v3   \n\t" \
+    "vmadotu v30, v9,  v3   \n\t" \
+    "vle32.v v2,  (s3)      \n\t" \
+    "addi    s3,  s3,  8*4*8\n\t"
 
-#define KERNEL8x8x16_M2                                     \
-    "vmadotu        v16,        v10,        v4        \n\t" \
-    "vmadotu        v24,        v11,        v4        \n\t" \
-    "vle32.v        v3,         (s4)                  \n\t" \
-    "addi           s4,         s4,         8*4*8     \n\t" \
-    "vmadotu        v18,        v10,        v5        \n\t" \
-    "vmadotu        v26,        v11,        v5        \n\t" \
-    "vle32.v        v4,         (s5)                  \n\t" \
-    "addi           s5,         s5,         8*4*8     \n\t" \
-    "vmadotu        v20,        v10,        v6        \n\t" \
-    "vmadotu        v28,        v11,        v6        \n\t" \
-    "vle32.v        v5,         (s6)                  \n\t" \
-    "addi           s6,         s6,         8*4*8     \n\t" \
-    "vmadotu        v22,        v10,        v7        \n\t" \
-    "vmadotu        v30,        v11,        v7        \n\t" \
-    "vle32.v        v6,         (s7)                  \n\t" \
-    "addi           s7,         s7,         8*4*8     \n\t" \
-    "vle32.v        v7,         (s8)                  \n\t" \
-    "addi           s8,         s8,         8*4*8     \n\t" \
-    "vle32.v        v8,         (t1)                  \n\t" \
-    "addi           t1,         t1,         4*4*8     \n\t" \
-    "vle32.v        v9,         (t2)                  \n\t" \
-    "addi           t2,         t2,         4*4*8     \n\t" \
-    "vle32.v        v10,        (t3)                  \n\t" \
-    "addi           t3,         t3,         4*4*8     \n\t"
+#define KERNEL8x8x16_M2           \
+    "vmadotu v16, v10, v4   \n\t" \
+    "vmadotu v24, v11, v4   \n\t" \
+    "vle32.v v3,  (s4)      \n\t" \
+    "addi    s4,  s4,  8*4*8\n\t" \
+    "vmadotu v18, v10, v5   \n\t" \
+    "vmadotu v26, v11, v5   \n\t" \
+    "vle32.v v4,  (s5)      \n\t" \
+    "addi    s5,  s5,  8*4*8\n\t" \
+    "vmadotu v20, v10, v6   \n\t" \
+    "vmadotu v28, v11, v6   \n\t" \
+    "vle32.v v5,  (s6)      \n\t" \
+    "addi    s6,  s6,  8*4*8\n\t" \
+    "vmadotu v22, v10, v7   \n\t" \
+    "vmadotu v30, v11, v7   \n\t" \
+    "vle32.v v6,  (s7)      \n\t" \
+    "addi    s7,  s7,  8*4*8\n\t" \
+    "vle32.v v7,  (s8)      \n\t" \
+    "addi    s8,  s8,  8*4*8\n\t" \
+    "vle32.v v8,  (t1)      \n\t" \
+    "addi    t1,  t1,  4*4*8\n\t" \
+    "vle32.v v9,  (t2)      \n\t" \
+    "addi    t2,  t2,  4*4*8\n\t" \
+    "vle32.v v10, (t3)      \n\t" \
+    "addi    t3,  t3,  4*4*8\n\t"
 
-#define KERNEL8x8x16_M3                                     \
-    "vmadotu        v16,        v12,        v0        \n\t" \
-    "vmadotu        v24,        v13,        v0        \n\t" \
-    "vle32.v        v11,        (t4)                  \n\t" \
-    "addi           t4,         t4,         4*4*8     \n\t" \
-    "vmadotu        v18,        v12,        v1        \n\t" \
-    "vmadotu        v26,        v13,        v1        \n\t" \
-    "vle32.v        v0,         (s1)                  \n\t" \
-    "addi           s1,         s1,         8*4*8     \n\t" \
-    "vmadotu        v20,        v12,        v2        \n\t" \
-    "vmadotu        v28,        v13,        v2        \n\t" \
-    "vle32.v        v1,         (s2)                  \n\t" \
-    "addi           s2,         s2,         8*4*8     \n\t" \
-    "vmadotu        v22,        v12,        v3        \n\t" \
-    "vmadotu        v30,        v13,        v3        \n\t" \
-    "vle32.v        v2,         (s3)                  \n\t" \
-    "addi           s3,         s3,         8*4*8     \n\t"
+#define KERNEL8x8x16_M3           \
+    "vmadotu v16, v12, v0   \n\t" \
+    "vmadotu v24, v13, v0   \n\t" \
+    "vle32.v v11, (t4)      \n\t" \
+    "addi    t4,  t4,  4*4*8\n\t" \
+    "vmadotu v18, v12, v1   \n\t" \
+    "vmadotu v26, v13, v1   \n\t" \
+    "vle32.v v0,  (s1)      \n\t" \
+    "addi    s1,  s1,  8*4*8\n\t" \
+    "vmadotu v20, v12, v2   \n\t" \
+    "vmadotu v28, v13, v2   \n\t" \
+    "vle32.v v1,  (s2)      \n\t" \
+    "addi    s2,  s2,  8*4*8\n\t" \
+    "vmadotu v22, v12, v3   \n\t" \
+    "vmadotu v30, v13, v3   \n\t" \
+    "vle32.v v2,  (s3)      \n\t" \
+    "addi    s3,  s3,  8*4*8\n\t"
 
-#define KERNEL8x8x16_M4                                     \
-    "vmadotu        v16,        v14,        v4        \n\t" \
-    "vmadotu        v24,        v15,        v4        \n\t" \
-    "vle32.v        v3,         (s4)                  \n\t" \
-    "addi           s4,         s4,         8*4*8     \n\t" \
-    "vmadotu        v18,        v14,        v5        \n\t" \
-    "vmadotu        v26,        v15,        v5        \n\t" \
-    "vle32.v        v4,         (s5)                  \n\t" \
-    "addi           s5,         s5,         8*4*8     \n\t" \
-    "vmadotu        v20,        v14,        v6        \n\t" \
-    "vmadotu        v28,        v15,        v6        \n\t" \
-    "vle32.v        v5,         (s6)                  \n\t" \
-    "addi           s6,         s6,         8*4*8     \n\t" \
-    "vmadotu        v22,        v14,        v7        \n\t" \
-    "vmadotu        v30,        v15,        v7        \n\t" \
-    "vle32.v        v6,         (s7)                  \n\t" \
-    "addi           s7,         s7,         8*4*8     \n\t" \
-    "vle32.v        v7,         (s8)                  \n\t" \
-    "addi           s8,         s8,         8*4*8     \n\t" \
-                                                            \
-    "vle32.v        v12,        (t1)                  \n\t" \
-    "addi           t1,         t1,         4*4*8     \n\t" \
-    "vle32.v        v13,        (t2)                  \n\t" \
-    "addi           t2,         t2,         4*4*8     \n\t" \
-    "vle32.v        v14,        (t3)                  \n\t" \
-    "addi           t3,         t3,         4*4*8     \n\t"
+#define KERNEL8x8x16_M4           \
+    "vmadotu v16, v14, v4   \n\t" \
+    "vmadotu v24, v15, v4   \n\t" \
+    "vle32.v v3,  (s4)      \n\t" \
+    "addi    s4,  s4,  8*4*8\n\t" \
+    "vmadotu v18, v14, v5   \n\t" \
+    "vmadotu v26, v15, v5   \n\t" \
+    "vle32.v v4,  (s5)      \n\t" \
+    "addi    s5,  s5,  8*4*8\n\t" \
+    "vmadotu v20, v14, v6   \n\t" \
+    "vmadotu v28, v15, v6   \n\t" \
+    "vle32.v v5,  (s6)      \n\t" \
+    "addi    s6,  s6,  8*4*8\n\t" \
+    "vmadotu v22, v14, v7   \n\t" \
+    "vmadotu v30, v15, v7   \n\t" \
+    "vle32.v v6,  (s7)      \n\t" \
+    "addi    s7,  s7,  8*4*8\n\t" \
+    "vle32.v v7,  (s8)      \n\t" \
+    "addi    s8,  s8,  8*4*8\n\t" \
+                                  \
+    "vle32.v v12, (t1)      \n\t" \
+    "addi    t1,  t1,  4*4*8\n\t" \
+    "vle32.v v13, (t2)      \n\t" \
+    "addi    t2,  t2,  4*4*8\n\t" \
+    "vle32.v v14, (t3)      \n\t" \
+    "addi    t3,  t3,  4*4*8\n\t"
 
-#define KERNEL8x8x16_E2                                     \
-    "vmadotu        v16,        v10,        v4        \n\t" \
-    "vmadotu        v24,        v11,        v4        \n\t" \
-    "vle32.v        v3,         (s4)                  \n\t" \
-    "addi           s4,         s4,         8*4*8     \n\t" \
-    "vmadotu        v18,        v10,        v5        \n\t" \
-    "vmadotu        v26,        v11,        v5        \n\t" \
-    "vle32.v        v4,         (s5)                  \n\t" \
-    "addi           s5,         s5,         8*4*8     \n\t" \
-    "vmadotu        v20,        v10,        v6        \n\t" \
-    "vmadotu        v28,        v11,        v6        \n\t" \
-    "vle32.v        v5,         (s6)                  \n\t" \
-    "addi           s6,         s6,         8*4*8     \n\t" \
-    "vmadotu        v22,        v10,        v7        \n\t" \
-    "vmadotu        v30,        v11,        v7        \n\t" \
-    "vle32.v        v6,         (s7)                  \n\t" \
-    "addi           s7,         s7,         8*4*8     \n\t"
+#define KERNEL8x8x16_E2           \
+    "vmadotu v16, v10, v4   \n\t" \
+    "vmadotu v24, v11, v4   \n\t" \
+    "vle32.v v3,  (s4)      \n\t" \
+    "addi    s4,  s4,  8*4*8\n\t" \
+    "vmadotu v18, v10, v5   \n\t" \
+    "vmadotu v26, v11, v5   \n\t" \
+    "vle32.v v4,  (s5)      \n\t" \
+    "addi    s5,  s5,  8*4*8\n\t" \
+    "vmadotu v20, v10, v6   \n\t" \
+    "vmadotu v28, v11, v6   \n\t" \
+    "vle32.v v5,  (s6)      \n\t" \
+    "addi    s6,  s6,  8*4*8\n\t" \
+    "vmadotu v22, v10, v7   \n\t" \
+    "vmadotu v30, v11, v7   \n\t" \
+    "vle32.v v6,  (s7)      \n\t" \
+    "addi    s7,  s7,  8*4*8\n\t"
 
-#define KERNEL8x8x16_E3                                     \
-    "vmadotu        v16,        v12,        v0        \n\t" \
-    "vmadotu        v24,        v13,        v0        \n\t" \
-    "vle32.v        v7,         (s8)                  \n\t" \
-    "addi           s8,         s8,         8*4*8     \n\t" \
-    "vmadotu        v18,        v12,        v1        \n\t" \
-    "vmadotu        v26,        v13,        v1        \n\t" \
-                                                            \
-    "vmadotu        v20,        v12,        v2        \n\t" \
-    "vmadotu        v28,        v13,        v2        \n\t" \
-                                                            \
-    "vmadotu        v22,        v12,        v3        \n\t" \
-    "vmadotu        v30,        v13,        v3        \n\t"
+#define KERNEL8x8x16_E3           \
+    "vmadotu v16, v12, v0   \n\t" \
+    "vmadotu v24, v13, v0   \n\t" \
+    "vle32.v v7,  (s8)      \n\t" \
+    "addi    s8,  s8,  8*4*8\n\t" \
+    "vmadotu v18, v12, v1   \n\t" \
+    "vmadotu v26, v13, v1   \n\t" \
+                                  \
+    "vmadotu v20, v12, v2   \n\t" \
+    "vmadotu v28, v13, v2   \n\t" \
+                                  \
+    "vmadotu v22, v12, v3   \n\t" \
+    "vmadotu v30, v13, v3   \n\t"
 
-#define KERNEL8x8x16_E4                                     \
-    "vmadotu        v16,        v14,        v4        \n\t" \
-    "vmadotu        v24,        v15,        v4        \n\t" \
-                                                            \
-    "vmadotu        v18,        v14,        v5        \n\t" \
-    "vmadotu        v26,        v15,        v5        \n\t" \
-                                                            \
-    "vmadotu        v20,        v14,        v6        \n\t" \
-    "vmadotu        v28,        v15,        v6        \n\t" \
-                                                            \
-    "vmadotu        v22,        v14,        v7        \n\t" \
-    "vmadotu        v30,        v15,        v7        \n\t"
+#define KERNEL8x8x16_E4        \
+    "vmadotu v16, v14, v4\n\t" \
+    "vmadotu v24, v15, v4\n\t" \
+                               \
+    "vmadotu v18, v14, v5\n\t" \
+    "vmadotu v26, v15, v5\n\t" \
+                               \
+    "vmadotu v20, v14, v6\n\t" \
+    "vmadotu v28, v15, v6\n\t" \
+                               \
+    "vmadotu v22, v14, v7\n\t" \
+    "vmadotu v30, v15, v7\n\t"
 
 template <typename MLAS_GEMM_X8X8_KERNEL_IME_TYPE>
 size_t
@@ -417,175 +417,175 @@ MlasGemmQuantKernel_8x16_IME(const typename MLAS_GEMM_X8X8_KERNEL_IME_TYPE::Pack
         const size_t SubCountN = std::min(CountN - n, MLAS_GEMM_X8X8_KERNEL_IME_TYPE::PackedN);
         size_t acc_stride = MLAS_GEMM_X8X8_KERNEL_IME_TYPE::PackedN;
         __asm__ volatile(
-            "vsetvli        t3,         zero,       e32,    m1, tu, mu\n\t"
-            "vmv.v.x        v16,        zero                \n\t"
-            "vmv.v.x        v17,        zero                \n\t"
-            "vmv.v.x        v18,        zero                \n\t"
-            "vmv.v.x        v19,        zero                \n\t"
-            "vmv.v.x        v20,        zero                \n\t"
-            "vmv.v.x        v21,        zero                \n\t"
-            "vmv.v.x        v22,        zero                \n\t"
-            "vmv.v.x        v23,        zero                \n\t"
-            "vmv.v.x        v24,        zero                \n\t"
-            "vmv.v.x        v25,        zero                \n\t"
-            "vmv.v.x        v26,        zero                \n\t"
-            "vmv.v.x        v27,        zero                \n\t"
-            "vmv.v.x        v28,        zero                \n\t"
-            "vmv.v.x        v29,        zero                \n\t"
-            "vmv.v.x        v30,        zero                \n\t"
-            "vmv.v.x        v31,        zero                \n\t"
+            "vsetvli       t3,  zero,                    e32,  m1,  tu, mu\n\t"
+            "vmv.v.x       v16, zero                                      \n\t"
+            "vmv.v.x       v17, zero                                      \n\t"
+            "vmv.v.x       v18, zero                                      \n\t"
+            "vmv.v.x       v19, zero                                      \n\t"
+            "vmv.v.x       v20, zero                                      \n\t"
+            "vmv.v.x       v21, zero                                      \n\t"
+            "vmv.v.x       v22, zero                                      \n\t"
+            "vmv.v.x       v23, zero                                      \n\t"
+            "vmv.v.x       v24, zero                                      \n\t"
+            "vmv.v.x       v25, zero                                      \n\t"
+            "vmv.v.x       v26, zero                                      \n\t"
+            "vmv.v.x       v27, zero                                      \n\t"
+            "vmv.v.x       v28, zero                                      \n\t"
+            "vmv.v.x       v29, zero                                      \n\t"
+            "vmv.v.x       v30, zero                                      \n\t"
+            "vmv.v.x       v31, zero                                      \n\t"
 
-            "mv             t1,         %[a]                \n\t"
-            "addi           t2,         %[a],       4*8     \n\t"
-            "add            t3,         %[a],       4*8*2   \n\t"
-            "addi           t4,         %[a],       4*8*3   \n\t"
+            "mv            t1,  %[a]                                      \n\t"
+            "addi          t2,  %[a],                    4*8              \n\t"
+            "add           t3,  %[a],                    4*8*2            \n\t"
+            "addi          t4,  %[a],                    4*8*3            \n\t"
 
-            "mv             s1,         %[b]                \n\t"
-            "addi           s2,         %[b],       4*8     \n\t"
-            "addi           s3,         %[b],       4*8*2   \n\t"
-            "addi           s4,         %[b],       4*8*3   \n\t"
-            "addi           s5,         %[b],       4*8*4   \n\t"
-            "addi           s6,         %[b],       4*8*5   \n\t"
-            "addi           s7,         %[b],       4*8*6   \n\t"
-            "addi           s8,         %[b],       4*8*7   \n\t"
+            "mv            s1,  %[b]                                      \n\t"
+            "addi          s2,  %[b],                    4*8              \n\t"
+            "addi          s3,  %[b],                    4*8*2            \n\t"
+            "addi          s4,  %[b],                    4*8*3            \n\t"
+            "addi          s5,  %[b],                    4*8*4            \n\t"
+            "addi          s6,  %[b],                    4*8*5            \n\t"
+            "addi          s7,  %[b],                    4*8*6            \n\t"
+            "addi          s8,  %[b],                    4*8*7            \n\t"
 
-            "srli           t0,         %[k],       2       \n\t"
-            "blez           t0,         M8x32x16_TAIL%=     \n\t"
+            "srli          t0,  %[k],                    2                \n\t"
+            "blez          t0,  M8x32x16_TAIL%=                           \n\t"
 
             // preloop
             KERNEL8x8x16_I
 
-            "addi           t0,       t0,           -1      \n\t"
-            "blez           t0,       M8x32x16_MAINLOOP_TAIL%=\n\t"
+            "addi          t0,  t0,                      -1               \n\t"
+            "blez          t0,  M8x32x16_MAINLOOP_TAIL%=                  \n\t"
 
-            ".align 4                                       \n\t"
-            "M8x32x16_MAINLOOP%=:                           \n\t"
+            ".align 4                                                     \n\t"
+            "M8x32x16_MAINLOOP%=:                                         \n\t"
 
             KERNEL8x8x16_M2 KERNEL8x8x16_M3 KERNEL8x8x16_M4 KERNEL8x8x16_M1
 
-            "addi           t0,       t0,           -1      \n\t"
-            "bgtz           t0,       M8x32x16_MAINLOOP%=   \n\t"
+            "addi          t0,  t0,                      -1               \n\t"
+            "bgtz          t0,  M8x32x16_MAINLOOP%=                       \n\t"
 
-            "M8x32x16_MAINLOOP_TAIL%=:                      \n\t"
+            "M8x32x16_MAINLOOP_TAIL%=:                                    \n\t"
 
             KERNEL8x8x16_E2 KERNEL8x8x16_E3 KERNEL8x8x16_E4
 
-            "M8x32x16_TAIL%=:                               \n\t"
-            "andi           t0,       %[k],         3       \n\t"
-            "blez           t0,       M8x16_SAVERESULT%=    \n\t"
+            "M8x32x16_TAIL%=:                                             \n\t"
+            "andi          t0,  %[k],                    3                \n\t"
+            "blez          t0,  M8x16_SAVERESULT%=                        \n\t"
 
-            "vsetvli        t3,         zero,       e8,     m1, tu, mu\n\t"
-            "M8x16_TAILLOOP%=:                              \n\t"
-            "vle8.v         v8,         (t1)                \n\t"
-            "addi           t1,         t1,         2*4*8   \n\t"
-            "vle8.v         v9,         (t2)                \n\t"
-            "addi           t2,         t2,         2*4*8   \n\t"
+            "vsetvli       t3,  zero,                    e8,   m1,  tu, mu\n\t"
+            "M8x16_TAILLOOP%=:                                            \n\t"
+            "vle8.v        v8,  (t1)                                      \n\t"
+            "addi          t1,  t1,                      2*4*8            \n\t"
+            "vle8.v        v9,  (t2)                                      \n\t"
+            "addi          t2,  t2,                      2*4*8            \n\t"
 
-            "vle8.v         v0,         (s1)                \n\t"
-            "addi           s1,         s1,         4*4*8   \n\t"
-            "vle8.v         v1,         (s2)                \n\t"
-            "addi           s2,         s2,         4*4*8   \n\t"
-            "vle8.v         v2,         (s3)                \n\t"
-            "addi           s3,         s3,         4*4*8   \n\t"
-            "vle8.v         v3,         (s4)                \n\t"
-            "addi           s4,         s4,         4*4*8   \n\t"
+            "vle8.v        v0,  (s1)                                      \n\t"
+            "addi          s1,  s1,                      4*4*8            \n\t"
+            "vle8.v        v1,  (s2)                                      \n\t"
+            "addi          s2,  s2,                      4*4*8            \n\t"
+            "vle8.v        v2,  (s3)                                      \n\t"
+            "addi          s3,  s3,                      4*4*8            \n\t"
+            "vle8.v        v3,  (s4)                                      \n\t"
+            "addi          s4,  s4,                      4*4*8            \n\t"
 
-            "vmadotu        v16,        v8,         v0      \n\t"
-            "vmadotu        v18,        v8,         v1      \n\t"
-            "vmadotu        v20,        v8,         v2      \n\t"
-            "vmadotu        v22,        v8,         v3      \n\t"
-            "vmadotu        v24,        v9,         v0      \n\t"
-            "vmadotu        v26,        v9,         v1      \n\t"
-            "vmadotu        v28,        v9,         v2      \n\t"
-            "vmadotu        v30,        v9,         v3      \n\t"
+            "vmadotu       v16, v8,                      v0               \n\t"
+            "vmadotu       v18, v8,                      v1               \n\t"
+            "vmadotu       v20, v8,                      v2               \n\t"
+            "vmadotu       v22, v8,                      v3               \n\t"
+            "vmadotu       v24, v9,                      v0               \n\t"
+            "vmadotu       v26, v9,                      v1               \n\t"
+            "vmadotu       v28, v9,                      v2               \n\t"
+            "vmadotu       v30, v9,                      v3               \n\t"
 
-            "addi           t0,         t0,         -1      \n\t"
-            "bgtz           t0,         M8x16_TAILLOOP%=    \n\t"
+            "addi          t0,  t0,                      -1               \n\t"
+            "bgtz          t0,  M8x16_TAILLOOP%=                          \n\t"
 
-            "M8x16_SAVERESULT%=:                            \n\t"
-            "vsetvli        t0,         zero,       e32,    m1, tu, mu\n\t"
+            "M8x16_SAVERESULT%=:                                          \n\t"
+            "vsetvli       t0,  zero,                    e32,  m1,  tu, mu\n\t"
 
-            "vmv.v.i        v0,         15                  \n\t"
+            "vmv.v.i       v0,  15                                        \n\t"
 
-            "vmv.v.v        v1,         v20                 \n\t"
-            "vmv.v.v        v2,         v18                 \n\t"
-            "vmv.v.v        v3,         v22                 \n\t"
-            "vmv.v.v        v4,         v17                 \n\t"
-            "vmv.v.v        v5,         v21                 \n\t"
-            "vmv.v.v        v6,         v19                 \n\t"
-            "vmv.v.v        v7,         v23                 \n\t"
+            "vmv.v.v       v1,  v20                                       \n\t"
+            "vmv.v.v       v2,  v18                                       \n\t"
+            "vmv.v.v       v3,  v22                                       \n\t"
+            "vmv.v.v       v4,  v17                                       \n\t"
+            "vmv.v.v       v5,  v21                                       \n\t"
+            "vmv.v.v       v6,  v19                                       \n\t"
+            "vmv.v.v       v7,  v23                                       \n\t"
 
-            "vmv.v.v        v8,         v24                 \n\t"
-            "vmv.v.v        v9,         v28                 \n\t"
-            "vmv.v.v        v10,        v26                 \n\t"
-            "vmv.v.v        v11,        v30                 \n\t"
-            "vmv.v.v        v12,        v25                 \n\t"
-            "vmv.v.v        v13,        v29                 \n\t"
-            "vmv.v.v        v14,        v27                 \n\t"
-            "vmv.v.v        v15,        v31                 \n\t"
+            "vmv.v.v       v8,  v24                                       \n\t"
+            "vmv.v.v       v9,  v28                                       \n\t"
+            "vmv.v.v       v10, v26                                       \n\t"
+            "vmv.v.v       v11, v30                                       \n\t"
+            "vmv.v.v       v12, v25                                       \n\t"
+            "vmv.v.v       v13, v29                                       \n\t"
+            "vmv.v.v       v14, v27                                       \n\t"
+            "vmv.v.v       v15, v31                                       \n\t"
 
-            "vslideup.vi    v1,         v22,        4       \n\t"
-            "vslideup.vi    v4,         v19,        4       \n\t"
-            "vslideup.vi    v5,         v23,        4       \n\t"
-            "vslideup.vi    v8,         v26,        4       \n\t"
-            "vslideup.vi    v9,         v30,        4       \n\t"
-            "vslideup.vi    v12,        v27,        4       \n\t"
-            "vslideup.vi    v13,        v31,        4       \n\t"
+            "vslideup.vi   v1,  v22,                     4                \n\t"
+            "vslideup.vi   v4,  v19,                     4                \n\t"
+            "vslideup.vi   v5,  v23,                     4                \n\t"
+            "vslideup.vi   v8,  v26,                     4                \n\t"
+            "vslideup.vi   v9,  v30,                     4                \n\t"
+            "vslideup.vi   v12, v27,                     4                \n\t"
+            "vslideup.vi   v13, v31,                     4                \n\t"
 
-            "vslidedown.vi  v2,         v16,        4,      v0.t\n\t"
-            "vslidedown.vi  v3,         v20,        4,      v0.t\n\t"
-            "vslidedown.vi  v6,         v17,        4,      v0.t\n\t"
-            "vslidedown.vi  v7,         v21,        4,      v0.t\n\t"
-            "vslidedown.vi  v10,        v24,        4,      v0.t\n\t"
-            "vslidedown.vi  v11,        v28,        4,      v0.t\n\t"
-            "vslidedown.vi  v14,        v25,        4,      v0.t\n\t"
-            "vslidedown.vi  v15,        v29,        4,      v0.t\n\t"
+            "vslidedown.vi v2,  v16,                     4,    v0.t       \n\t"
+            "vslidedown.vi v3,  v20,                     4,    v0.t       \n\t"
+            "vslidedown.vi v6,  v17,                     4,    v0.t       \n\t"
+            "vslidedown.vi v7,  v21,                     4,    v0.t       \n\t"
+            "vslidedown.vi v10, v24,                     4,    v0.t       \n\t"
+            "vslidedown.vi v11, v28,                     4,    v0.t       \n\t"
+            "vslidedown.vi v14, v25,                     4,    v0.t       \n\t"
+            "vslidedown.vi v15, v29,                     4,    v0.t       \n\t"
 
-            "vmv.v.v        v0,         v16                 \n\t"
-            "vslideup.vi    v0,         v18,        4       \n\t"
+            "vmv.v.v       v0,  v16                                       \n\t"
+            "vslideup.vi   v0,  v18,                     4                \n\t"
 
-            "M8x16_SAVE%=:                                  \n\t"
+            "M8x16_SAVE%=:                                                \n\t"
 
-            "slli           t3,         %[ld_acc],     2       \n\t"
-            "vsetvli        t0,         %[nr],      e32,    m2, tu, mu\n\t"
-            "vse32.v        v0,         (%[acc_buf])              \n\t"
-            "addi           t1,         %[mr],      -1      \n\t"
-            "add            t2,         %[acc_buf],       t3      \n\t"
-            "blez           t1,         QUIT%=              \n\t"
+            "slli          t3,  %[ld_acc],               2                \n\t"
+            "vsetvli       t0,  %[nr],                   e32,  m2,  tu, mu\n\t"
+            "vse32.v       v0,  (%[acc_buf])                              \n\t"
+            "addi          t1,  %[mr],                   -1               \n\t"
+            "add           t2,  %[acc_buf],              t3               \n\t"
+            "blez          t1,  QUIT%=                                    \n\t"
 
-            "vse32.v        v2,         (t2)                \n\t"
-            "addi           t1,         t1,         -1      \n\t"
-            "add            t2,         t2,         t3      \n\t"
-            "blez           t1,         QUIT%=              \n\t"
+            "vse32.v       v2,  (t2)                                      \n\t"
+            "addi          t1,  t1,                      -1               \n\t"
+            "add           t2,  t2,                      t3               \n\t"
+            "blez          t1,  QUIT%=                                    \n\t"
 
-            "vse32.v        v4,         (t2)                \n\t"
-            "addi           t1,         t1,         -1      \n\t"
-            "add            t2,         t2,         t3      \n\t"
-            "blez           t1,         QUIT%=              \n\t"
+            "vse32.v       v4,  (t2)                                      \n\t"
+            "addi          t1,  t1,                      -1               \n\t"
+            "add           t2,  t2,                      t3               \n\t"
+            "blez          t1,  QUIT%=                                    \n\t"
 
-            "vse32.v        v6,         (t2)                \n\t"
-            "addi           t1,         t1,         -1      \n\t"
-            "add            t2,         t2,         t3      \n\t"
-            "blez           t1,         QUIT%=              \n\t"
+            "vse32.v       v6,  (t2)                                      \n\t"
+            "addi          t1,  t1,                      -1               \n\t"
+            "add           t2,  t2,                      t3               \n\t"
+            "blez          t1,  QUIT%=                                    \n\t"
 
-            "vse32.v        v8,         (t2)                \n\t"
-            "addi           t1,         t1,         -1      \n\t"
-            "add            t2,         t2,         t3      \n\t"
-            "blez           t1,         QUIT%=              \n\t"
+            "vse32.v       v8,  (t2)                                      \n\t"
+            "addi          t1,  t1,                      -1               \n\t"
+            "add           t2,  t2,                      t3               \n\t"
+            "blez          t1,  QUIT%=                                    \n\t"
 
-            "vse32.v        v10,        (t2)                \n\t"
-            "addi           t1,         t1,         -1      \n\t"
-            "add            t2,         t2,         t3      \n\t"
-            "blez           t1,         QUIT%=              \n\t"
+            "vse32.v       v10, (t2)                                      \n\t"
+            "addi          t1,  t1,                      -1               \n\t"
+            "add           t2,  t2,                      t3               \n\t"
+            "blez          t1,  QUIT%=                                    \n\t"
 
-            "vse32.v        v12,        (t2)                \n\t"
-            "addi           t1,         t1,         -1      \n\t"
-            "add            t2,         t2,         t3      \n\t"
-            "blez           t1,         QUIT%=              \n\t"
+            "vse32.v       v12, (t2)                                      \n\t"
+            "addi          t1,  t1,                      -1               \n\t"
+            "add           t2,  t2,                      t3               \n\t"
+            "blez          t1,  QUIT%=                                    \n\t"
 
-            "vse32.v        v14,        (t2)                \n\t"
+            "vse32.v       v14, (t2)                                      \n\t"
 
-            "QUIT%=:                                        \n\t"
+            "QUIT%=:                                                      \n\t"
             : [ cb ] "+r"(ColumnSumBuffer), [ zp ] "+r"(ZeroPointB)
             : [ a ] "r"(A), [ b ] "r"(B), [ k ] "r"(PackedCountK), [ c ] "r"(C), [ ldc ] "r"(ldc),
               [ nr ] "r"(SubCountN), [ mr ] "r"(CountM), [ zeromode ] "r"(ZeroMode), [ rb ] "r"(RowSumBuffer),
@@ -622,142 +622,142 @@ MlasGemmQuantKernel_8x16_IME(const typename MLAS_GEMM_X8X8_KERNEL_IME_TYPE::Pack
     return CountM;
 }
 
-#define KERNEL4x8x16_I                                      \
-    "vle32.v        v8,         (t1)                  \n\t" \
-    "addi           t1,         t1,         4*4*8     \n\t" \
-    "vle32.v        v10,        (t3)                  \n\t" \
-    "addi           t3,         t3,         4*4*8     \n\t" \
-                                                            \
-    "vle32.v        v0,         (s1)                  \n\t" \
-    "addi           s1,         s1,         8*4*8     \n\t" \
-    "vle32.v        v1,         (s2)                  \n\t" \
-    "addi           s2,         s2,         8*4*8     \n\t" \
-    "vle32.v        v2,         (s3)                  \n\t" \
-    "addi           s3,         s3,         8*4*8     \n\t" \
-    "vle32.v        v3,         (s4)                  \n\t" \
-    "addi           s4,         s4,         8*4*8     \n\t" \
-    "vle32.v        v4,         (s5)                  \n\t" \
-    "addi           s5,         s5,         8*4*8     \n\t" \
-    "vle32.v        v5,         (s6)                  \n\t" \
-    "addi           s6,         s6,         8*4*8     \n\t" \
-    "vle32.v        v6,         (s7)                  \n\t" \
-    "addi           s7,         s7,         8*4*8     \n\t" \
-    "vle32.v        v7,         (s8)                  \n\t" \
-    "addi           s8,         s8,         8*4*8     \n\t" \
-                                                            \
-    "vle32.v        v12,        (t1)                  \n\t" \
-    "addi           t1,         t1,         4*4*8     \n\t" \
-    "vle32.v        v14,        (t3)                  \n\t" \
-    "addi           t3,         t3,         4*4*8     \n\t" \
-                                                            \
-    "vmadotu        v16,        v8,         v0        \n\t" \
-    "vmadotu        v18,        v8,         v1        \n\t" \
-    "vle32.v        v0,         (s1)                  \n\t" \
-    "addi           s1,         s1,         8*4*8     \n\t" \
-    "vmadotu        v20,        v8,         v2        \n\t" \
-    "vle32.v        v1,         (s2)                  \n\t" \
-    "addi           s2,         s2,         8*4*8     \n\t" \
-    "vmadotu        v22,        v8,         v3        \n\t" \
-    "vle32.v        v2,         (s3)                  \n\t" \
-    "addi           s3,         s3,         8*4*8     \n\t"
+#define KERNEL4x8x16_I            \
+    "vle32.v v8,  (t1)      \n\t" \
+    "addi    t1,  t1,  4*4*8\n\t" \
+    "vle32.v v10, (t3)      \n\t" \
+    "addi    t3,  t3,  4*4*8\n\t" \
+                                  \
+    "vle32.v v0,  (s1)      \n\t" \
+    "addi    s1,  s1,  8*4*8\n\t" \
+    "vle32.v v1,  (s2)      \n\t" \
+    "addi    s2,  s2,  8*4*8\n\t" \
+    "vle32.v v2,  (s3)      \n\t" \
+    "addi    s3,  s3,  8*4*8\n\t" \
+    "vle32.v v3,  (s4)      \n\t" \
+    "addi    s4,  s4,  8*4*8\n\t" \
+    "vle32.v v4,  (s5)      \n\t" \
+    "addi    s5,  s5,  8*4*8\n\t" \
+    "vle32.v v5,  (s6)      \n\t" \
+    "addi    s6,  s6,  8*4*8\n\t" \
+    "vle32.v v6,  (s7)      \n\t" \
+    "addi    s7,  s7,  8*4*8\n\t" \
+    "vle32.v v7,  (s8)      \n\t" \
+    "addi    s8,  s8,  8*4*8\n\t" \
+                                  \
+    "vle32.v v12, (t1)      \n\t" \
+    "addi    t1,  t1,  4*4*8\n\t" \
+    "vle32.v v14, (t3)      \n\t" \
+    "addi    t3,  t3,  4*4*8\n\t" \
+                                  \
+    "vmadotu v16, v8,  v0   \n\t" \
+    "vmadotu v18, v8,  v1   \n\t" \
+    "vle32.v v0,  (s1)      \n\t" \
+    "addi    s1,  s1,  8*4*8\n\t" \
+    "vmadotu v20, v8,  v2   \n\t" \
+    "vle32.v v1,  (s2)      \n\t" \
+    "addi    s2,  s2,  8*4*8\n\t" \
+    "vmadotu v22, v8,  v3   \n\t" \
+    "vle32.v v2,  (s3)      \n\t" \
+    "addi    s3,  s3,  8*4*8\n\t"
 
-#define KERNEL4x8x16_M1                                     \
-    "vmadotu        v16,        v8,         v0        \n\t" \
-    "vmadotu        v18,        v8,         v1        \n\t" \
-    "vle32.v        v0,         (s1)                  \n\t" \
-    "addi           s1,         s1,         8*4*8     \n\t" \
-    "vmadotu        v20,        v8,         v2        \n\t" \
-    "vle32.v        v1,         (s2)                  \n\t" \
-    "addi           s2,         s2,         8*4*8     \n\t" \
-    "vmadotu        v22,        v8,         v3        \n\t" \
-    "vle32.v        v2,         (s3)                  \n\t" \
-    "addi           s3,         s3,         8*4*8     \n\t"
+#define KERNEL4x8x16_M1           \
+    "vmadotu v16, v8,  v0   \n\t" \
+    "vmadotu v18, v8,  v1   \n\t" \
+    "vle32.v v0,  (s1)      \n\t" \
+    "addi    s1,  s1,  8*4*8\n\t" \
+    "vmadotu v20, v8,  v2   \n\t" \
+    "vle32.v v1,  (s2)      \n\t" \
+    "addi    s2,  s2,  8*4*8\n\t" \
+    "vmadotu v22, v8,  v3   \n\t" \
+    "vle32.v v2,  (s3)      \n\t" \
+    "addi    s3,  s3,  8*4*8\n\t"
 
-#define KERNEL4x8x16_M2                                     \
-    "vmadotu        v16,        v10,        v4        \n\t" \
-    "vle32.v        v3,         (s4)                  \n\t" \
-    "addi           s4,         s4,         8*4*8     \n\t" \
-    "vmadotu        v18,        v10,        v5        \n\t" \
-    "vle32.v        v4,         (s5)                  \n\t" \
-    "addi           s5,         s5,         8*4*8     \n\t" \
-    "vmadotu        v20,        v10,        v6        \n\t" \
-    "vle32.v        v5,         (s6)                  \n\t" \
-    "addi           s6,         s6,         8*4*8     \n\t" \
-    "vmadotu        v22,        v10,        v7        \n\t" \
-    "vle32.v        v6,         (s7)                  \n\t" \
-    "addi           s7,         s7,         8*4*8     \n\t" \
-    "vle32.v        v7,         (s8)                  \n\t" \
-    "addi           s8,         s8,         8*4*8     \n\t" \
-    "vle32.v        v8,         (t1)                  \n\t" \
-    "addi           t1,         t1,         4*4*8     \n\t" \
-    "vle32.v        v10,        (t3)                  \n\t" \
-    "addi           t3,         t3,         4*4*8     \n\t"
+#define KERNEL4x8x16_M2           \
+    "vmadotu v16, v10, v4   \n\t" \
+    "vle32.v v3,  (s4)      \n\t" \
+    "addi    s4,  s4,  8*4*8\n\t" \
+    "vmadotu v18, v10, v5   \n\t" \
+    "vle32.v v4,  (s5)      \n\t" \
+    "addi    s5,  s5,  8*4*8\n\t" \
+    "vmadotu v20, v10, v6   \n\t" \
+    "vle32.v v5,  (s6)      \n\t" \
+    "addi    s6,  s6,  8*4*8\n\t" \
+    "vmadotu v22, v10, v7   \n\t" \
+    "vle32.v v6,  (s7)      \n\t" \
+    "addi    s7,  s7,  8*4*8\n\t" \
+    "vle32.v v7,  (s8)      \n\t" \
+    "addi    s8,  s8,  8*4*8\n\t" \
+    "vle32.v v8,  (t1)      \n\t" \
+    "addi    t1,  t1,  4*4*8\n\t" \
+    "vle32.v v10, (t3)      \n\t" \
+    "addi    t3,  t3,  4*4*8\n\t"
 
-#define KERNEL4x8x16_M3                                     \
-    "vmadotu        v16,        v12,        v0        \n\t" \
-    "vmadotu        v18,        v12,        v1        \n\t" \
-    "vle32.v        v0,         (s1)                  \n\t" \
-    "addi           s1,         s1,         8*4*8     \n\t" \
-    "vmadotu        v20,        v12,        v2        \n\t" \
-    "vle32.v        v1,         (s2)                  \n\t" \
-    "addi           s2,         s2,         8*4*8     \n\t" \
-    "vmadotu        v22,        v12,        v3        \n\t" \
-    "vle32.v        v2,         (s3)                  \n\t" \
-    "addi           s3,         s3,         8*4*8     \n\t"
+#define KERNEL4x8x16_M3           \
+    "vmadotu v16, v12, v0   \n\t" \
+    "vmadotu v18, v12, v1   \n\t" \
+    "vle32.v v0,  (s1)      \n\t" \
+    "addi    s1,  s1,  8*4*8\n\t" \
+    "vmadotu v20, v12, v2   \n\t" \
+    "vle32.v v1,  (s2)      \n\t" \
+    "addi    s2,  s2,  8*4*8\n\t" \
+    "vmadotu v22, v12, v3   \n\t" \
+    "vle32.v v2,  (s3)      \n\t" \
+    "addi    s3,  s3,  8*4*8\n\t"
 
-#define KERNEL4x8x16_M4                                     \
-    "vmadotu        v16,        v14,        v4        \n\t" \
-    "vle32.v        v3,         (s4)                  \n\t" \
-    "addi           s4,         s4,         8*4*8     \n\t" \
-    "vmadotu        v18,        v14,        v5        \n\t" \
-    "vle32.v        v4,         (s5)                  \n\t" \
-    "addi           s5,         s5,         8*4*8     \n\t" \
-    "vmadotu        v20,        v14,        v6        \n\t" \
-    "vle32.v        v5,         (s6)                  \n\t" \
-    "addi           s6,         s6,         8*4*8     \n\t" \
-    "vmadotu        v22,        v14,        v7        \n\t" \
-    "vle32.v        v6,         (s7)                  \n\t" \
-    "addi           s7,         s7,         8*4*8     \n\t" \
-    "vle32.v        v7,         (s8)                  \n\t" \
-    "addi           s8,         s8,         8*4*8     \n\t" \
-                                                            \
-    "vle32.v        v12,        (t1)                  \n\t" \
-    "addi           t1,         t1,         4*4*8     \n\t" \
-    "vle32.v        v14,        (t3)                  \n\t" \
-    "addi           t3,         t3,         4*4*8     \n\t"
+#define KERNEL4x8x16_M4           \
+    "vmadotu v16, v14, v4   \n\t" \
+    "vle32.v v3,  (s4)      \n\t" \
+    "addi    s4,  s4,  8*4*8\n\t" \
+    "vmadotu v18, v14, v5   \n\t" \
+    "vle32.v v4,  (s5)      \n\t" \
+    "addi    s5,  s5,  8*4*8\n\t" \
+    "vmadotu v20, v14, v6   \n\t" \
+    "vle32.v v5,  (s6)      \n\t" \
+    "addi    s6,  s6,  8*4*8\n\t" \
+    "vmadotu v22, v14, v7   \n\t" \
+    "vle32.v v6,  (s7)      \n\t" \
+    "addi    s7,  s7,  8*4*8\n\t" \
+    "vle32.v v7,  (s8)      \n\t" \
+    "addi    s8,  s8,  8*4*8\n\t" \
+                                  \
+    "vle32.v v12, (t1)      \n\t" \
+    "addi    t1,  t1,  4*4*8\n\t" \
+    "vle32.v v14, (t3)      \n\t" \
+    "addi    t3,  t3,  4*4*8\n\t"
 
-#define KERNEL4x8x16_E2                                     \
-    "vmadotu        v16,        v10,        v4        \n\t" \
-    "vle32.v        v3,         (s4)                  \n\t" \
-    "addi           s4,         s4,         8*4*8     \n\t" \
-    "vmadotu        v18,        v10,        v5        \n\t" \
-    "vle32.v        v4,         (s5)                  \n\t" \
-    "addi           s5,         s5,         8*4*8     \n\t" \
-    "vmadotu        v20,        v10,        v6        \n\t" \
-    "vle32.v        v5,         (s6)                  \n\t" \
-    "addi           s6,         s6,         8*4*8     \n\t" \
-    "vmadotu        v22,        v10,        v7        \n\t" \
-    "vle32.v        v6,         (s7)                  \n\t" \
-    "addi           s7,         s7,         8*4*8     \n\t"
+#define KERNEL4x8x16_E2           \
+    "vmadotu v16, v10, v4   \n\t" \
+    "vle32.v v3,  (s4)      \n\t" \
+    "addi    s4,  s4,  8*4*8\n\t" \
+    "vmadotu v18, v10, v5   \n\t" \
+    "vle32.v v4,  (s5)      \n\t" \
+    "addi    s5,  s5,  8*4*8\n\t" \
+    "vmadotu v20, v10, v6   \n\t" \
+    "vle32.v v5,  (s6)      \n\t" \
+    "addi    s6,  s6,  8*4*8\n\t" \
+    "vmadotu v22, v10, v7   \n\t" \
+    "vle32.v v6,  (s7)      \n\t" \
+    "addi    s7,  s7,  8*4*8\n\t"
 
-#define KERNEL4x8x16_E3                                     \
-    "vmadotu        v16,        v12,        v0        \n\t" \
-    "vle32.v        v7,         (s8)                  \n\t" \
-    "addi           s8,         s8,         8*4*8     \n\t" \
-    "vmadotu        v18,        v12,        v1        \n\t" \
-                                                            \
-    "vmadotu        v20,        v12,        v2        \n\t" \
-                                                            \
-    "vmadotu        v22,        v12,        v3        \n\t"
+#define KERNEL4x8x16_E3           \
+    "vmadotu v16, v12, v0   \n\t" \
+    "vle32.v v7,  (s8)      \n\t" \
+    "addi    s8,  s8,  8*4*8\n\t" \
+    "vmadotu v18, v12, v1   \n\t" \
+                                  \
+    "vmadotu v20, v12, v2   \n\t" \
+                                  \
+    "vmadotu v22, v12, v3   \n\t"
 
-#define KERNEL4x8x16_E4                                     \
-    "vmadotu        v16,        v14,        v4        \n\t" \
-                                                            \
-    "vmadotu        v18,        v14,        v5        \n\t" \
-                                                            \
-    "vmadotu        v20,        v14,        v6        \n\t" \
-                                                            \
-    "vmadotu        v22,        v14,        v7        \n\t"
+#define KERNEL4x8x16_E4        \
+    "vmadotu v16, v14, v4\n\t" \
+                               \
+    "vmadotu v18, v14, v5\n\t" \
+                               \
+    "vmadotu v20, v14, v6\n\t" \
+                               \
+    "vmadotu v22, v14, v7\n\t"
 
 template <typename MLAS_GEMM_X8X8_KERNEL_IME_TYPE>
 size_t
@@ -778,123 +778,123 @@ MlasGemmQuantKernel_4x16_IME(const typename MLAS_GEMM_X8X8_KERNEL_IME_TYPE::Pack
         const size_t SubCountN = std::min(CountN - n, MLAS_GEMM_X8X8_KERNEL_IME_TYPE::PackedN);
         size_t acc_stride = MLAS_GEMM_X8X8_KERNEL_IME_TYPE::PackedN;
         __asm__ volatile(
-            "vsetvli        t3,         zero,       e32,    m1, tu, mu\n\t"
-            "vmv.v.x        v16,        zero                \n\t"
-            "vmv.v.x        v17,        zero                \n\t"
-            "vmv.v.x        v18,        zero                \n\t"
-            "vmv.v.x        v19,        zero                \n\t"
-            "vmv.v.x        v20,        zero                \n\t"
-            "vmv.v.x        v21,        zero                \n\t"
-            "vmv.v.x        v22,        zero                \n\t"
-            "vmv.v.x        v23,        zero                \n\t"
+            "vsetvli       t3,  zero,                    e32,  m1,  tu, mu\n\t"
+            "vmv.v.x       v16, zero                                      \n\t"
+            "vmv.v.x       v17, zero                                      \n\t"
+            "vmv.v.x       v18, zero                                      \n\t"
+            "vmv.v.x       v19, zero                                      \n\t"
+            "vmv.v.x       v20, zero                                      \n\t"
+            "vmv.v.x       v21, zero                                      \n\t"
+            "vmv.v.x       v22, zero                                      \n\t"
+            "vmv.v.x       v23, zero                                      \n\t"
 
-            "mv             t1,         %[a]                \n\t"
-            "addi           t2,         %[a],       4*8     \n\t"
-            "add            t3,         %[a],       4*8*2   \n\t"
-            "addi           t4,         %[a],       4*8*3   \n\t"
+            "mv            t1,  %[a]                                      \n\t"
+            "addi          t2,  %[a],                    4*8              \n\t"
+            "add           t3,  %[a],                    4*8*2            \n\t"
+            "addi          t4,  %[a],                    4*8*3            \n\t"
 
-            "mv             s1,         %[b]                \n\t"
-            "addi           s2,         %[b],       4*8     \n\t"
-            "addi           s3,         %[b],       4*8*2   \n\t"
-            "addi           s4,         %[b],       4*8*3   \n\t"
-            "addi           s5,         %[b],       4*8*4   \n\t"
-            "addi           s6,         %[b],       4*8*5   \n\t"
-            "addi           s7,         %[b],       4*8*6   \n\t"
-            "addi           s8,         %[b],       4*8*7   \n\t"
+            "mv            s1,  %[b]                                      \n\t"
+            "addi          s2,  %[b],                    4*8              \n\t"
+            "addi          s3,  %[b],                    4*8*2            \n\t"
+            "addi          s4,  %[b],                    4*8*3            \n\t"
+            "addi          s5,  %[b],                    4*8*4            \n\t"
+            "addi          s6,  %[b],                    4*8*5            \n\t"
+            "addi          s7,  %[b],                    4*8*6            \n\t"
+            "addi          s8,  %[b],                    4*8*7            \n\t"
 
-            "srli           t0,         %[k],       2       \n\t"
-            "blez           t0,         M4x32x16_TAIL%=     \n\t"
+            "srli          t0,  %[k],                    2                \n\t"
+            "blez          t0,  M4x32x16_TAIL%=                           \n\t"
 
             // preloop
             KERNEL4x8x16_I
 
-            "addi           t0,       t0,           -1      \n\t"
-            "blez           t0,       M4x32x16_MAINLOOP_TAIL%=\n\t"
+            "addi          t0,  t0,                      -1               \n\t"
+            "blez          t0,  M4x32x16_MAINLOOP_TAIL%=                  \n\t"
 
-            ".align 4                                       \n\t"
-            "M4x32x16_MAINLOOP%=:                           \n\t"
+            ".align 4                                                     \n\t"
+            "M4x32x16_MAINLOOP%=:                                         \n\t"
 
             KERNEL4x8x16_M2 KERNEL4x8x16_M3 KERNEL4x8x16_M4 KERNEL4x8x16_M1
 
-            "addi           t0,       t0,           -1      \n\t"
-            "bgtz           t0,       M4x32x16_MAINLOOP%=   \n\t"
+            "addi          t0,  t0,                      -1               \n\t"
+            "bgtz          t0,  M4x32x16_MAINLOOP%=                       \n\t"
 
-            "M4x32x16_MAINLOOP_TAIL%=:                      \n\t"
+            "M4x32x16_MAINLOOP_TAIL%=:                                    \n\t"
 
             KERNEL4x8x16_E2 KERNEL4x8x16_E3 KERNEL4x8x16_E4
 
-            "M4x32x16_TAIL%=:                               \n\t"
-            "andi           t0,       %[k],         3       \n\t"
-            "blez           t0,       M4x16_SAVERESULT%=    \n\t"
+            "M4x32x16_TAIL%=:                                             \n\t"
+            "andi          t0,  %[k],                    3                \n\t"
+            "blez          t0,  M4x16_SAVERESULT%=                        \n\t"
 
-            "vsetvli        t3,         zero,       e8,     m1, tu, mu\n\t"
-            "M4x16_TAILLOOP%=:                              \n\t"
-            "vle8.v         v8,         (t1)                \n\t"
-            "addi           t1,         t1,         2*4*8   \n\t"
+            "vsetvli       t3,  zero,                    e8,   m1,  tu, mu\n\t"
+            "M4x16_TAILLOOP%=:                                            \n\t"
+            "vle8.v        v8,  (t1)                                      \n\t"
+            "addi          t1,  t1,                      2*4*8            \n\t"
 
-            "vle8.v         v0,         (s1)                \n\t"
-            "addi           s1,         s1,         4*4*8   \n\t"
-            "vle8.v         v1,         (s2)                \n\t"
-            "addi           s2,         s2,         4*4*8   \n\t"
-            "vle8.v         v2,         (s3)                \n\t"
-            "addi           s3,         s3,         4*4*8   \n\t"
-            "vle8.v         v3,         (s4)                \n\t"
-            "addi           s4,         s4,         4*4*8   \n\t"
+            "vle8.v        v0,  (s1)                                      \n\t"
+            "addi          s1,  s1,                      4*4*8            \n\t"
+            "vle8.v        v1,  (s2)                                      \n\t"
+            "addi          s2,  s2,                      4*4*8            \n\t"
+            "vle8.v        v2,  (s3)                                      \n\t"
+            "addi          s3,  s3,                      4*4*8            \n\t"
+            "vle8.v        v3,  (s4)                                      \n\t"
+            "addi          s4,  s4,                      4*4*8            \n\t"
 
-            "vmadotu        v16,        v8,         v0      \n\t"
-            "vmadotu        v18,        v8,         v1      \n\t"
-            "vmadotu        v20,        v8,         v2      \n\t"
-            "vmadotu        v22,        v8,         v3      \n\t"
+            "vmadotu       v16, v8,                      v0               \n\t"
+            "vmadotu       v18, v8,                      v1               \n\t"
+            "vmadotu       v20, v8,                      v2               \n\t"
+            "vmadotu       v22, v8,                      v3               \n\t"
 
-            "addi           t0,         t0,         -1      \n\t"
-            "bgtz           t0,         M4x16_TAILLOOP%=    \n\t"
+            "addi          t0,  t0,                      -1               \n\t"
+            "bgtz          t0,  M4x16_TAILLOOP%=                          \n\t"
 
-            "M4x16_SAVERESULT%=:                            \n\t"
-            "vsetvli        t0,         zero,       e32,    m1, tu, mu\n\t"
+            "M4x16_SAVERESULT%=:                                          \n\t"
+            "vsetvli       t0,  zero,                    e32,  m1,  tu, mu\n\t"
 
-            "vmv.v.i        v0,         15                  \n\t"
-            "vmv.v.v        v1,         v20                 \n\t"
-            "vmv.v.v        v2,         v18                 \n\t"
-            "vmv.v.v        v3,         v22                 \n\t"
-            "vmv.v.v        v4,         v17                 \n\t"
-            "vmv.v.v        v5,         v21                 \n\t"
-            "vmv.v.v        v6,         v19                 \n\t"
-            "vmv.v.v        v7,         v23                 \n\t"
+            "vmv.v.i       v0,  15                                        \n\t"
+            "vmv.v.v       v1,  v20                                       \n\t"
+            "vmv.v.v       v2,  v18                                       \n\t"
+            "vmv.v.v       v3,  v22                                       \n\t"
+            "vmv.v.v       v4,  v17                                       \n\t"
+            "vmv.v.v       v5,  v21                                       \n\t"
+            "vmv.v.v       v6,  v19                                       \n\t"
+            "vmv.v.v       v7,  v23                                       \n\t"
 
-            "vslideup.vi    v1,         v22,        4       \n\t"
-            "vslideup.vi    v4,         v19,        4       \n\t"
-            "vslideup.vi    v5,         v23,        4       \n\t"
+            "vslideup.vi   v1,  v22,                     4                \n\t"
+            "vslideup.vi   v4,  v19,                     4                \n\t"
+            "vslideup.vi   v5,  v23,                     4                \n\t"
 
-            "vslidedown.vi  v2,         v16,        4,      v0.t\n\t"
-            "vslidedown.vi  v3,         v20,        4,      v0.t\n\t"
-            "vslidedown.vi  v6,         v17,        4,      v0.t\n\t"
-            "vslidedown.vi  v7,         v21,        4,      v0.t\n\t"
+            "vslidedown.vi v2,  v16,                     4,    v0.t       \n\t"
+            "vslidedown.vi v3,  v20,                     4,    v0.t       \n\t"
+            "vslidedown.vi v6,  v17,                     4,    v0.t       \n\t"
+            "vslidedown.vi v7,  v21,                     4,    v0.t       \n\t"
 
-            "vmv.v.v        v0,         v16                 \n\t"
-            "vslideup.vi    v0,         v18,        4       \n\t"
+            "vmv.v.v       v0,  v16                                       \n\t"
+            "vslideup.vi   v0,  v18,                     4                \n\t"
 
-            "M4x16_SAVE%=:                                  \n\t"
+            "M4x16_SAVE%=:                                                \n\t"
 
-            "slli           t3,         %[ld_acc],     2       \n\t"
-            "vsetvli        t0,         %[nr],      e32,    m2, tu, mu\n\t"
-            "vse32.v        v0,         (%[acc_buf])              \n\t"
-            "addi           t1,         %[mr],      -1      \n\t"
-            "add            t2,         %[acc_buf],       t3      \n\t"
-            "blez           t1,         QUIT%=              \n\t"
+            "slli          t3,  %[ld_acc],               2                \n\t"
+            "vsetvli       t0,  %[nr],                   e32,  m2,  tu, mu\n\t"
+            "vse32.v       v0,  (%[acc_buf])                              \n\t"
+            "addi          t1,  %[mr],                   -1               \n\t"
+            "add           t2,  %[acc_buf],              t3               \n\t"
+            "blez          t1,  QUIT%=                                    \n\t"
 
-            "vse32.v        v2,         (t2)                \n\t"
-            "addi           t1,         t1,         -1      \n\t"
-            "add            t2,         t2,         t3      \n\t"
-            "blez           t1,         QUIT%=              \n\t"
+            "vse32.v       v2,  (t2)                                      \n\t"
+            "addi          t1,  t1,                      -1               \n\t"
+            "add           t2,  t2,                      t3               \n\t"
+            "blez          t1,  QUIT%=                                    \n\t"
 
-            "vse32.v        v4,         (t2)                \n\t"
-            "addi           t1,         t1,         -1      \n\t"
-            "add            t2,         t2,         t3      \n\t"
-            "blez           t1,         QUIT%=              \n\t"
+            "vse32.v       v4,  (t2)                                      \n\t"
+            "addi          t1,  t1,                      -1               \n\t"
+            "add           t2,  t2,                      t3               \n\t"
+            "blez          t1,  QUIT%=                                    \n\t"
 
-            "vse32.v        v6,         (t2)                \n\t"
+            "vse32.v       v6,  (t2)                                      \n\t"
 
-            "QUIT%=:                                        \n\t"
+            "QUIT%=:                                                      \n\t"
             : [ cb ] "+r"(ColumnSumBuffer), [ zp ] "+r"(ZeroPointB)
             : [ a ] "r"(A), [ b ] "r"(B), [ k ] "r"(PackedCountK), [ c ] "r"(C), [ ldc ] "r"(ldc),
               [ nr ] "r"(SubCountN), [ mr ] "r"(CountM), [ zeromode ] "r"(ZeroMode), [ rb ] "r"(RowSumBuffer),
