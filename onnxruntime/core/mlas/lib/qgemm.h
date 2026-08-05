@@ -916,6 +916,7 @@ MlasGemmQuantGetDispatch(
     if (GetMlasPlatform().GemmU8X8Dispatch == &MlasGemm8X8DispatchZVECTOR) {
         GemmQuantDispatch = GetMlasPlatform().GemmU8X8Dispatch;
     }
+#endif
 #endif // !defined(FORCE_GENERIC_ALGORITHMS)
 
     if (nullptr == GemmQuantDispatch) {
