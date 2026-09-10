@@ -530,10 +530,11 @@ def generate_build_tree(
                 raise BuildError("The --riscv_qemu_path option is required for testing riscv64.")
 
         spacemit_cmake_toolchain_file = "riscv64.spacemit.toolchain.cmake"
-        if args.riscv_use_clang:
-            spacemit_cmake_toolchain_file = "riscv64.spacemit.clang.toolchain.cmake"
-        elif args.build_ohos:
+
+        if args.build_ohos:
             spacemit_cmake_toolchain_file = "riscv64.oh.spacemit.toolchain.cmake"
+        elif args.riscv_use_clang:
+            spacemit_cmake_toolchain_file = "riscv64.spacemit.clang.toolchain.cmake"
 
         rv_toolchain_file = os.path.join(source_dir, "cmake", spacemit_cmake_toolchain_file)
 

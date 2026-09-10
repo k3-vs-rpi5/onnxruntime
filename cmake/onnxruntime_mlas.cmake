@@ -864,8 +864,8 @@ endif()
       check_c_source_compiles("int main() {__asm__ volatile(\"vmadot v2, v0, v1, i8\");}" SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_VMADOT_S8)
       check_c_source_compiles("int main() {__asm__ volatile(\"vfwmadot v2, v0, v1, fp16\");}" SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_VFWMADOT_FP16)
       check_c_source_compiles("int main() {__asm__ volatile(\"vfmadot v2, v0, v1, fp32\");}" SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_VFMADOT_FP32)
-      check_c_source_compiles("int main() {__asm__ volatile(\"vmadot.hp v2, v0, v1, v0, 0, i4\");}" SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_VFMADOT_S4)
-      check_c_source_compiles("int main() {__asm__ volatile(\"vmadot.hp v2, v0, v1, v0, 0, i8\");}" SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_VFMADOT_S8)
+      check_c_source_compiles("int main() {__asm__ volatile(\"vmadot.hp v4, v2, v3, v0, 0, i4\");}" SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_VFMADOT_S4)
+      check_c_source_compiles("int main() {__asm__ volatile(\"vmadot.hp v4, v2, v3, v0, 0, i8\");}" SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_VFMADOT_S8)
       check_c_source_compiles("int main() {__asm__ volatile(\"vmadot1 v2, v0, v1\");}" SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_VMADOTN)
       check_c_source_compiles("int main() {__asm__ volatile(\"vpack.vv v2, v0, v1, 2\");}" SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_VPACK)
       check_c_source_compiles("int main() {__asm__ volatile(\"vnspack.vv v2, v0, v1, 2\");}" SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_VNPACK)
@@ -887,22 +887,6 @@ endif()
             ${mlas_platform_srcs}
             ${mlas_platform_srcs_generic}
           )
-      if(SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_IME1)
-        set(mlas_platform_srcs
-            ${mlas_platform_srcs}
-            ${MLAS_SRC_DIR}/qgemm_kernel_spacemit_ime1.cpp
-        )
-        add_compile_definitions(onnxruntime_mlas PRIVATE RISCV_SPACEMIT_IME1=1)
-      endif()
-
-      if(SPINE_COMPILER_SUPPORT_RISCV_SPACEMIT_VMADOT_S4)
-        set(mlas_platform_srcs
-            ${mlas_platform_srcs}
-            ${MLAS_SRC_DIR}/qgemm_kernel_spacemit_ime2.cpp
-        )
-        add_compile_definitions(onnxruntime_mlas PRIVATE RISCV_SPACEMIT_IME2=1)
-      endif()
-
       if(NOT ONNXRUNTIME_MLAS_MULTI_ARCH)
         set(MLAS_SOURCE_IS_NOT_SET 0)
       endif()
