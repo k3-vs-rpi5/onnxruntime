@@ -1,0 +1,31 @@
+schema_version: 1
+source:
+  name: ONNX Runtime (SpacemiT fork)
+  upstream: https://github.com/spacemit-com/onnxruntime.git
+  ref: upstream-1.24.2
+  commit: d76541ad26ca93d2d52e5d2db2aacaff862df5cf
+  license: MIT
+  checkout: src/onnxruntime
+  identity_note: >-
+    the fork carries the SpacemiT toolchain files and the execution-provider test
+    utility; the provider itself is not in this tree
+  integrity_command: git -C src/onnxruntime rev-parse HEAD
+  checksum_control:
+    cmake/riscv64.spacemit.toolchain.cmake: ac81388774ba2b8e6ff0901726b68a1ea17668a4243199139f9f5bdecedee837
+    tools/scripts/build_riscv64.spacemit.sh: 66e9dc5ff2ac5c3550a5ef6aa3b35c43676671ce02526b7652eba934c97530f0
+    onnxruntime/test/util/test_spacemit_ep.cc: 82c40f9ce843dc8f293047ac2328d9c0578fa1bf2f511c9b79489aa18be64f22
+closed_component:
+  name: spacemit-ort
+  version: 2.0.6
+  arch: riscv64
+  package_commit: 5a5b59149c701931aeb32c36bc0181b4edf34dcc
+  package_url: https://github.com/spacemit-com/onnxruntime/releases/download/2.0.6/spacemit-ort.riscv64.2.0.6.tar.gz
+  package_sha256: bebcdfb7df6b49eefa3863afcd85a3da2aa83c3ae9252d7d856188c38a70b0e6
+  shipped_runtime: lib/libonnxruntime.so.1.24.2+spacemit.a1
+  shipped_provider: lib/libspacemit_ep.so.2.0.6
+  provider_stripped: true
+  released_by: debian package python3-spacemit-ort 2.0.6 on the board
+documented_entry_points:
+  - Ort::SessionOptionsSpaceMITEnvInit from include/spacemit_ort_env.h
+  - provider options SPACEMIT_EP_DEBUG_PROFILE, SPACEMIT_EP_DUMP_SUBGRAPHS, SPACEMIT_EP_DUMP_TENSORS
+  - plugin API include/spacemit_ort_plugin.h with samples/plugin/PLUGIN.md
