@@ -29,6 +29,11 @@ package identity, and the documented entry points we are allowed to use.
 - the A100 development rules are in the workspace contract, not here.
 - automation (`src/onnxruntime_project`, `scripts/build.sh`, `scripts/run.sh`) is
   the next deliverable and is named as pending in `project.yaml`.
+- planning round 2026-09-20: the release package is retrieved and identified (and
+  its libraries differ from the board's deb pair under the same version number -
+  `TECHNICAL-ANALYSIS.md` §2), the project layout and the measurement plan are in
+  `src/onnxruntime_project/{PLAN.md,TECHNICAL-ANALYSIS.md}`, and nothing under
+  `src/onnxruntime` has been modified.
 
 ## Workspace entry
 
