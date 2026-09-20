@@ -169,8 +169,9 @@ Directions specific to this class:
 * VLM accuracy at int8 encoder precision is unmeasured; the vendor's own benchmark sidesteps it with
   fp16 encoders and `DENSE_ACCURACY_LEVEL=1`.
 * Which VLM is the acceptance target: the vendor zoo's fastvlm-0.5B package is already on the host
-  (`/tmp/fastvlm.tar.gz`, containing `fastvlm_vision.f16.onnx` and `fastvlm-text-0.5B-Q4_1.gguf`), so
-  it is the cheapest honest starting point; Qwen3-VL-30B-A3B is the hard one and matches the LLM
-  work's existing 30B MoE knowledge.
+  (moved out of `/tmp` this round to `.local/models/vlm/fastvlm-mm-0.5b-q4_1.tar.gz`, sha256
+  `495dcaca0b3c6b859495b48b5f736c3485cd821f282990504258b672de9435bf`; it contains
+  `fastvlm_vision.f16.onnx` and `fastvlm-text-0.5B-Q4_1.gguf`), so it is the cheapest honest starting
+  point; Qwen3-VL-30B-A3B is the hard one and matches the LLM work's existing 30B MoE knowledge.
 * Robotics acceptance also needs a control-side definition of done (which loop, which jitter bound);
   that is a human decision, not a measurement.
