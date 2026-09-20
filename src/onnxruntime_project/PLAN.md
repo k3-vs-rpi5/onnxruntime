@@ -6,7 +6,9 @@ sealed vendor component, no modification of the component.
 
 This round (2026-09-20) is **planning only**: the pinned fork is checked out, the sealed release
 package is retrieved and identified, the directory layout exists, and
-`TECHNICAL-ANALYSIS.md` records what is known and what is missing. No source file in
+`TECHNICAL-ANALYSIS.md` records what is known and what is missing, and `DEEP-ANALYSIS.md` turns the
+llama.cpp campaign's measured AI-cluster rules, the vendor's K3 tables and two real provider traces
+into a ranked optimisation agenda with VLM and embodied-AI workloads in front. No source file in
 `src/onnxruntime` has been touched, and no provider behaviour has been changed.
 
 ## What is in place
@@ -40,6 +42,10 @@ package is retrieved and identified, the directory layout exists, and
 6. **Plugin track (optional, after 1-5).** The published `spacemit_ort_plugin.h` path
    (`AddOperator` / `AddDispatch`) is the only allowed way to change operator compute on this stack;
    it becomes interesting once the profile trace shows an operator worth replacing.
+
+`DEEP-ANALYSIS.md` proposes D1-D8 in priority order and is the reference for what to run first:
+D1 (EP thread/TCM/session census) and D2 (subgraph coverage audit) are the two that decide whether
+the VLM encoder path is structurally sound before any tuning.
 
 ## Acceptance for step 1 (this round)
 

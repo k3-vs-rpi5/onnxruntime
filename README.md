@@ -32,8 +32,10 @@ package identity, and the documented entry points we are allowed to use.
 - planning round 2026-09-20: the release package is retrieved and identified (and
   its libraries differ from the board's deb pair under the same version number -
   `TECHNICAL-ANALYSIS.md` §2), the project layout and the measurement plan are in
-  `src/onnxruntime_project/{PLAN.md,TECHNICAL-ANALYSIS.md}`, and nothing under
-  `src/onnxruntime` has been modified.
+  `src/onnxruntime_project/{PLAN.md,TECHNICAL-ANALYSIS.md}`, the ranked optimisation
+  agenda built on the AI-cluster measurements is in `DEEP-ANALYSIS.md` (VLM and
+  embodied-AI workloads in front), and nothing under `src/onnxruntime` has been
+  modified.
 
 ## Workspace entry
 

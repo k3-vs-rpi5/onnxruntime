@@ -29,7 +29,8 @@ AI 工作的 ONNX 侧。两个产物必须放在一起看：承载 SpacemiT 构�
   交付项，并已在 `project.yaml` 中标注为待完成。
 - 2026-09-20 规划轮：发布包已取回并核对身份（其库与板卡 deb 安装库在同一版本号下并非同一
   二进制，见 `TECHNICAL-ANALYSIS.md` §2），项目目录与测量计划见
-  `src/onnxruntime_project/{PLAN.md,TECHNICAL-ANALYSIS.md}`，`src/onnxruntime` 未做任何修改。
+  `src/onnxruntime_project/{PLAN.md,TECHNICAL-ANALYSIS.md}`，基于 AI 集群实测整理的排序优化清单
+  见 `DEEP-ANALYSIS.md`（VLM 与具身智能优先），`src/onnxruntime` 未做任何修改。
 
 ## 工作区登记
 
