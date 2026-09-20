@@ -45,7 +45,13 @@ into a ranked optimisation agenda with VLM and embodied-AI workloads in front. N
 
 `DEEP-ANALYSIS.md` proposes D1-D8 in priority order and is the reference for what to run first:
 D1 (EP thread/TCM/session census) and D2 (subgraph coverage audit) are the two that decide whether
-the VLM encoder path is structurally sound before any tuning.
+the VLM encoder path is structurally sound before any tuning. **Both ran on 2026-09-21 and
+`BASELINE-20260921.md` records the results**: the EP creates exactly N compute threads with N TCM
+blocks (the "2x intra" documentation note does not hold), every measured model lands in a single
+provider subgraph including Attention/LayerNormalization/Gelu, the local matrix reproduces the
+vendor's published K3 table to within a couple of percent, and the fastvlm VLM path was measured end
+to end (encoder 241.52 ms at 4 threads against 150.89 at 8; the vendor's 92 ms end-to-end delta is
+entirely the encoder's thread scaling; the two engines serialise on the 8-block TCM table).
 
 ## Acceptance for step 1 (this round)
 

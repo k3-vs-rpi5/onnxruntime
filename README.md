@@ -34,8 +34,10 @@ package identity, and the documented entry points we are allowed to use.
   `TECHNICAL-ANALYSIS.md` §2), the project layout and the measurement plan are in
   `src/onnxruntime_project/{PLAN.md,TECHNICAL-ANALYSIS.md}`, the ranked optimisation
   agenda built on the AI-cluster measurements is in `DEEP-ANALYSIS.md` (VLM and
-  embodied-AI workloads in front), and nothing under `src/onnxruntime` has been
-  modified.
+  embodied-AI workloads in front). A first measurement round followed on 2026-09-21:
+  `BASELINE-20260921.md` holds the latency/thread/TCM/coverage/operator/VLM tables,
+  which reproduce the vendor's published K3 numbers within a couple of percent.
+  Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
 
