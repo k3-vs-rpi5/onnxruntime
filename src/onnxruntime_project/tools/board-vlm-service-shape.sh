@@ -14,7 +14,8 @@
 #
 #   board-vlm-service-shape.sh <config-dir> <concurrency> <tag>
 #
-# Env: M (model dir), PORT, IMG, TOKENS, STAGGER_MS, OUT.
+# Env: M (model dir), GGUF (text model; defaults to the single *.gguf in the config dir's parent),
+#      PORT, IMG, TOKENS, STAGGER_MS, OUT.
 set -eu
 M=${M:-/root/vlm-fastvlm}
 PORT=${PORT:-8099}
@@ -25,6 +26,13 @@ OUT=${OUT:-/tmp}
 CFG=$1
 CONC=$2
 TAG=$3
+
+# The text model is the .gguf next to the config directory, found rather than hard-coded so the same
+# script serves every model in the vendor's VLM family.
+if [ -z "${GGUF:-}" ]; then
+    GGUF=$(ls "$M"/*.gguf 2>/dev/null | head -1)
+fi
+[ -n "$GGUF" ] && [ -f "$GGUF" ] || { echo "FATAL: no text model found under $M" >&2; exit 1; }
 
 stop_servers() {
     pkill -f "llama-server -m" 2>/dev/null || true
@@ -52,7 +60,7 @@ if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
 fi
 
 log="$OUT/vlm-cell-$TAG.server.log"
-setsid nohup llama-server -m "$M/fastvlm-text-0.5B-Q4_1.gguf" --media-backend smt \
+setsid nohup llama-server -m "$GGUF" --media-backend smt \
     --smt-config-dir "$CFG" -ctk f16 -ctv f16 -t 8 -c 1024 \
     --host 127.0.0.1 --port "$PORT" > "$log" 2>&1 &
 for i in $(seq 1 120); do

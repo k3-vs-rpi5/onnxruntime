@@ -186,6 +186,30 @@ therefore taken against the *measured* frame. The first version of this tool div
 and would have reported `pp_liteseg` at 21.1 % instead of 25.5 % and the EP side as real time; the
 run logs are what caught it.
 
+### The same census over the published vision rows
+
+The ten models above are the two vendor repositories' representatives. Running the census over the
+eight models that actually stand behind the **published** K3 vision table (the official zoo assets
+this project already holds) answers the question section 2's caveat raises - whether those rows were
+measured in the shape a deployment gets:
+
+| model | measured frame | CPU share | CPU node executions/frame |
+|---|---|---|---|
+| `resnet18.q` | 2.49 ms | 0 % | 0 |
+| `resnet50.q` | 6.50 ms | 0 % | 0 |
+| `resnet50.b4.q` | 16.82 ms | 0 % | 0 |
+| `yolov8n.q` | 11.40 ms | 0 % | 0 |
+| `yolov8s.q` | 18.58 ms | 0 % | 0 |
+| `yolov8n-seg.q` | 14.97 ms | 0 % | 0 |
+| `vit_b_16.q` | 25.54 ms | 0 % | 0 |
+| `vit_b_16.fp16` | 51.40 ms | 0 % | 0 |
+
+**All eight are EP-complete.** So every published vision row we reproduced sits on a graph the
+provider claims in full, the pool-width caveat does not touch them, and the class of model that needs
+the `-x 8` correction (section 2) is outside the published set - it comes from the newer
+`model-zoo-vision` repository, where two of ten carry a fallback. The caveat is therefore narrower
+than it first looked, and its scope is now known rather than assumed.
+
 ## 4. What this round changes
 
 Accepted, no code change anywhere:
