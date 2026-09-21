@@ -55,7 +55,12 @@ package identity, and the documented entry points we are allowed to use.
   their VLM matrix script run on the board (all four functional checks pass; its
   own metrics gate fails because the streaming paths are not counted), and an
   independent confirmation that a vendor-published dynq encoder lands on the slow
-  fp32 path (2.10 s at 224 sq on 4 AI cores).
+  fp32 path (2.10 s at 224 sq on 4 AI cores). `OPTIMISATION-20260921.md` measures
+  the deployment shape: batching pays 1.41-1.47x per frame on a CNN, concurrency
+  inside one 8-thread session saturates at ~110 inf/s (extra streams only add
+  latency, splitting the cores costs -36 %), and the two clusters tax each other
+  by 10-25 % in both directions - with one invalid capture kept as such because
+  two EP processes were fighting over the same eight TCM blocks.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
