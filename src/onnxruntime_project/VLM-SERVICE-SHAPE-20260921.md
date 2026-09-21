@@ -335,3 +335,39 @@ the model answered 12/18 at 224², 12/18 at 384² and 12/18 at 768², **failing 
 every resolution** - it reports one rectangle instead of two, places the beige one on the left, and
 invents a circle that is not there. The screening set therefore cannot discriminate resolutions, and
 the failures it exposes belong to the model and the prompt, not to the image size.
+
+## 10. The prefill ladder: where the last 25 % between us and the published number lives
+
+Section 9 measured the encoder against the published row and won. The same model also has a *language*
+row in the vendor's table (`qwen3.5-0.8B`, Q4_1: PP128 182.69, TG128 29.33 t/s), and our service
+prefills its image tokens at 137.7 t/s - a 25 % gap that looked like it might be ours to close. Four
+measurements locate it, all on the board's existing material:
+
+| path (same model file, 8 threads) | rate | per token |
+|---|---|---|
+| the vendor's own `llama-bench` with the vendor's LLM flags (`-p 128 -mmp 0 -fa 1 -ub 128`) | **162.07 / 160.73 t/s** (two runs) | 6.17-6.22 ms |
+| published row for this model | 182.69 t/s | 5.47 ms |
+| `llama-server`, chat prompt of 228 tokens, **no media backend at all** | 143.23 t/s | 6.98 ms |
+| `llama-server`, same prompt, media backend loaded | 141.35 t/s | 7.07 ms |
+| `llama-server`, image prompt (162 tokens from the vision pipeline) | 137.7 t/s | 7.26 ms |
+
+Reading the ladder:
+
+* **the media backend is not the cost**: 1.3 % between a server that has it and one that does not,
+  measured by starting the second server without `--media-backend` and without `--smt-config-dir`
+  (`--media-backend none` is not a valid CLI value);
+* **the service form costs 13 %**: `llama-bench` 162.07 t/s against the server's 141.35 t/s on the same
+  model, same threads, same KV type - the price of the chat template, the slot scheduler and the
+  sampling loop. Section 9.2 already showed it is not reachable from the knobs we can set (`-fa`,
+  `-ub`, `-tb`, `mmap` all neutral);
+* **the published row is a further 12.7-13.7 % above the vendor's own tool** on this board (162.07 /
+  160.73 against 182.69 prefill; and 26.55 against 29.33 decode, +10.5 %). That is the same ~10 %
+  optimism section 7.1 found for the older LLM rows, now measured on a prefill row as well.
+
+So the 25 % decomposes into **13 % service form + 12.7 % published-row optimism**, and neither is a
+runtime setting on this board. The encoder, by contrast, is where a real and reproducible margin
+exists (-24.7 % at eight cores, section 9.1). A vendor-facing question therefore has a precise shape:
+the published rows for this model are ~10-13 % above what the vendor's own tools produce here, and
+the board's `llama-server` pays a further 13 % over `llama-bench` for the same weights - neither is
+something this project can tune away, and both are worth confirming against the vendor's measurement
+conditions.

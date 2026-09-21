@@ -128,6 +128,14 @@ package identity, and the documented entry points we are allowed to use.
   variants are recorded as measured and out of scope (an image change): 224² would be
   worth ~600 ms per frame, and the nine-question screening set answers 12/18 with the
   *same* failures at 224/384/768.
+  Section 10 locates the last 25 % between our service prefill and the model's published
+  *language* row: the media backend costs 1.3 % (measured by starting a server
+  without it), the service form costs 13 % (the vendor's own `llama-bench`
+  prefills at 160.73-162.07 t/s against the server's 141.35 t/s on the same
+  weights), and the published row is a further 12.7-13.7 % above the vendor's own
+  tool - the same ~10 % optimism already documented for the older LLM rows, now
+  measured on a prefill row. None of it is a runtime setting on this board; the
+  reproducible margin is the encoder's (-24.7 % at eight cores).
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
