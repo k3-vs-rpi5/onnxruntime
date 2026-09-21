@@ -163,3 +163,10 @@ time of their measurement.
    stack: our vision rows were produced with the release tarball, while the board's deb pair is a
    different binary (Section 2 of `TECHNICAL-ANALYSIS.md`); the two should be measured against each
    other once, so future numbers can state which one they used.
+4. Tooling note for the int8-encoder direction: `xslim` (the vendor's PTQ tool) is not installed
+   here. Its 2.1.1 metadata requires `torch>=2.0`, `torchvision`, `onnxruntime`, `opencv-python`,
+   `pandas`, `onnx-graphsurgeon` and more; the package resolves `--dynq` (dynamic quantization, no
+   calibration set) and `--fp16` without a config file, so the cheapest first attempt is a CPU-only
+   torch wheel plus `--no-deps` for the rest, run against `fastvlm_vision.f16.onnx`. This round
+   installed pip and started that path but did not finish it; the measurement above (ViT int8 vs
+   fp16 = 2.17x) is what makes it worth the next slot.
