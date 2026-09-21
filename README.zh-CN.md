@@ -32,7 +32,8 @@ AI 工作的 ONNX 侧。两个产物必须放在一起看：承载 SpacemiT 构�
   `src/onnxruntime_project/{PLAN.md,TECHNICAL-ANALYSIS.md}`，基于 AI 集群实测整理的排序优化清单
   见 `DEEP-ANALYSIS.md`（VLM 与具身智能优先）。随后 2026-09-21 完成第一轮实测：
   `BASELINE-20260921.md` 给出时延/线程/TCM/覆盖/算子/VLM 各表，与厂商公布的 K3 数据在
-  百分之几内吻合。`src/onnxruntime` 未做任何修改。
+  百分之几内吻合；`BASELINE2-20260921.md` 再补数值门（60 个中间张量，在不应变化时逐位一致）、
+  冷启动与每新帧成本、以及 X100 干扰阶梯。`src/onnxruntime` 未做任何修改。
 
 ## 工作区登记
 

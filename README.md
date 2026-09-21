@@ -36,7 +36,10 @@ package identity, and the documented entry points we are allowed to use.
   agenda built on the AI-cluster measurements is in `DEEP-ANALYSIS.md` (VLM and
   embodied-AI workloads in front). A first measurement round followed on 2026-09-21:
   `BASELINE-20260921.md` holds the latency/thread/TCM/coverage/operator/VLM tables,
-  which reproduce the vendor's published K3 numbers within a couple of percent.
+  which reproduce the vendor's published K3 numbers within a couple of percent, and
+  `BASELINE2-20260921.md` adds the numeric gate (60 intermediate tensors, bit-identical
+  when nothing should change), the cold-start and per-new-frame costs, and the X100
+  interference ladder.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
