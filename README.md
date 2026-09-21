@@ -48,7 +48,14 @@ package identity, and the documented entry points we are allowed to use.
   dynamic-quantisation route (`xslim --dynq`) is slower than the shipped fp16
   encoder (518.6 against 150.5 ms), a plain fp32 copy is 10x slower, and the
   `DENSE_ACCURACY_LEVEL` knob moves the dynq model only within +-7 %, so the
-  static-QDQ-with-calibration path is the one left open.
+  static-QDQ-with-calibration path is the one left open. `BASELINE4-20260921.md`
+  turns the vendor's own model-zoo repositories (`model-zoo-vision`, head of
+  2026-09-21, and `model-zoo-vlm`) into validation material: seven new vision
+  rows including their no-DFL detector (9.08 ms) and two VLM-class encoders,
+  their VLM matrix script run on the board (all four functional checks pass; its
+  own metrics gate fails because the streaming paths are not counted), and an
+  independent confirmation that a vendor-published dynq encoder lands on the slow
+  fp32 path (2.10 s at 224 sq on 4 AI cores).
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
