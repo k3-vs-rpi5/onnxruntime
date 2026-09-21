@@ -89,6 +89,15 @@ package identity, and the documented entry points we are allowed to use.
   the image path reaches 1.77x because the vision stage re-encodes every frame and
   contends for the same eight cores, and the encoder's width (one line in the
   model's `config.json`) is worth 14 % of aggregate at that load.
+  Section 5 of that document tries the three ways to take the vision stage off the
+  critical path and rejects all three with numbers: the X100 cluster runs that
+  encoder 30x slower (4.56 s against 152 ms), staggering the arrivals redistributes
+  latency without raising throughput, and narrowing the encoder leaves decode worse
+  off. `SESSION-OPTIONS-20260921.md` sweeps the session-level knobs on three models:
+  the vendor's graph-optimisation default is the right one (level 99 is within
+  +-2.5 %), `-o 0` costs 18.2 % and the parallel executor 9.8 % on the fallback-heavy
+  segmenter, and the memory-policy family (arena, pattern, spinning, env allocators)
+  is flat to +-1 %.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

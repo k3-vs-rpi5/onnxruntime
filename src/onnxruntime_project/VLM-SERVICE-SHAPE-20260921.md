@@ -83,3 +83,45 @@ Method note, kept because it invalidated a first table: the first sweep of this 
 (20.56 / 22.41 / 30.40 t/s) were dominated by *how long each answer happened to be*, not by
 throughput - 25-35 % below the corrected table. An aggregate tokens/s is only a measurement when
 every request produces the same number of tokens.
+
+## 5. Scheduling the vision stage: one rejection and two negatives
+
+Section 3 named the vision stage as the contended resource. Three ways to take it off the critical
+path were tried; none of them recovers throughput, and each result is worth keeping so the next
+attempt starts elsewhere.
+
+**Offload it to the X100 cluster - rejected by 30x.** The encoder is a 512² fp16 ViT. On the AI
+cluster it is 243.02 ms at four threads and 152.01 ms at eight. Run it on the X100 with ONNX Runtime's
+own CPU EP and the RVV kernels (`-e cpu -x N` on the same file): **7903.83 ms at four threads and
+4561.01 ms at eight.** The two clusters are not interchangeable for this stage, and the 10-25 %
+interference budget of round 5 never gets a chance to matter.
+
+**Queue the arrivals - no throughput.** Four image requests, same server, arriving 0 / 400 / 800 ms
+apart:
+
+| stagger | aggregate | min latency | median latency |
+|---|---|---|---|
+| none | **48.23 t/s** | 2534 ms | 2604 ms |
+| 400 ms | 47.09 t/s | 1515 ms | 2210 ms |
+| 800 ms | 35.01 t/s | 1253 ms | 1643 ms |
+
+Throughput does not improve - and the 800 ms row is *lower* only because 3 x 800 ms of deliberate
+waiting is inside its wall clock, which is also why its per-request latencies are the best of the
+three. Reading: queueing is a fairness knob (the last arrival gets a quiet server), not a throughput
+lever. The contention is not an arrival-order problem.
+
+**Make the encoder narrower to leave room for decode - no.** Completing the curve at four simultaneous
+requests: 2 threads 34.65 t/s, 4 threads 41.89 t/s, 8 threads **47.88 t/s**. Monotone, so the encoder
+should take all eight; there is no interleaving point that beats giving it the cluster and letting
+decode wait.
+
+**And the encode cannot be skipped.** There is no media-encode cache in this path: the vendor's own
+source computes an FNV hash of the image bytes and uses it as the media item's identity for the
+prompt-token cache, but the encoder itself runs per request - measured again here (a second identical
+request's time to first token is 228.0 ms against 229.7 ms for the first) and in round 4
+(`smt_encode_media` fired 30 times in a 30-frame loop over one image). No server flag turns it off.
+
+What is left for image-heavy VLM work is therefore **service policy, not runtime configuration**:
+send fewer frames (an embodied agent at 1 fps spends 152 ms of every second, 15 % of the cluster, on
+an encoder that could be run at 2-3 fps), or accept the 2.6x image surcharge of section 3. That is a
+product decision with a measured price on it, which is as far as this round can take it.
