@@ -142,7 +142,51 @@ The vendor's own library measures this segmenter at **83-85 ms** - the `-x 8` sh
 one. Their library and their published matrix therefore disagree by 2.3x on the same model bytes,
 and the matrix side is the one that is wrong.
 
-## 3. What this round changes
+## 3. Screening instrument: which models hand work back to the CPU EP at all
+
+Section 2 fixed one model, but "does this model have a CPU fallback" is a property of every model a
+deployment wants to use, and the sensitivity to `-x` is not the same thing as the fallback itself
+(`yolo26n` has one and does not care). So the method became a tool: `tools/board-coverage-census.sh`
+profiles a list of models in the deployment shape (EP 8, pool 8) and
+`tools/ort-provider-census.py` turns each profile into per-frame provider shares.
+
+Ten models, one `-r 5` profile each, the CPU side divided by that run's own measured frame
+(`coverage-census/`):
+
+| model | measured frame | CPU EP | CPU share | CPU node executions/frame |
+|---|---|---|---|---|
+| `pp_liteseg.q` | 84.81 ms | 21.67 ms | **25.5 %** | 13 (QuantizeLinear 11.44, AveragePool 6.30, Cast 0.65, boundary 3.29) |
+| `yolo26n.q` | 17.96 ms | 1.47 ms | 8.2 % | 16 (Tile, TopK, GatherElements, Div, Mod, ...) |
+| `siglip2_vision_encoder_fp16_proj.dynq` | 2846.23 ms | 16.37 ms | 0.6 % | 209 (Reshape, Slice, Concat, Gather, Shape) |
+| `yolov8n_no_dfl.q`, `yolo12n.q`, `det_10g_fixed.q`, `resnet50.q`, `vit_b_16.q`, `image_encoder.fp16`, `fastvlm_vision.f16` | 6.47 - 151.90 ms | 0.00 ms | 0 % | 0 |
+
+The census and section 2's two-run method are independent, and they agree: 21.67 ms of a measured
+84.81 ms frame is **25.5 %**, against **26.8 %** from the `-x 1`/`-x 8` pair (23.74 ms of 88.60 ms).
+
+What it buys, in order of usefulness:
+
+* **coverage is binary and cheap to know**: seven of ten are EP-complete, so they are insensitive to
+  the pool width by construction; three are not, and each of the three is a different shape;
+* **node count does not predict sensitivity.** `pp_liteseg` (13 nodes) moves 2.32x with the pool
+  width because its nodes are parallel-friendly (pooling and quantisation over large activations);
+  `yolo26n` (16 nodes, **8.2 %** of the frame) does not move at all (0.99 in the §2 census) because
+  its nodes are small sequential decoders - Tile, TopK, GatherElements - which pool width cannot
+  help; `siglip2` (209 nodes) is 0.6 %. So the census says *where to look* and how much is there, and
+  the unprofiled `-x 1`/`-x 8` pair says whether sizing the pool fixes it;
+* **the boundary is visible**: the EP inserts `Transpose`/`DequantizeLinear` nodes around each
+  fallback region, and the tool reports them separately (3.29 ms/frame on `pp_liteseg`, 9.75 ms/frame
+  on `siglip2`) - that share is a consequence of the fallback, not an operator the graph declares.
+
+Instrument note, and it is the reason the tool needs the run logs next to the profiles: **the
+provider's own node spans in this profile are not wall clock.** They sum to more than the frame -
+186.26 ms against a measured 25.91 ms on `vit_b_16`, 265.36 against 151.90 on the fastvlm encoder -
+because one subgraph span covers work the provider parallelises internally. The CPU EP's spans are
+read as real time (a CPU node's span is wall clock on the executor's own thread), and the share is
+therefore taken against the *measured* frame. The first version of this tool divided by the span sum
+and would have reported `pp_liteseg` at 21.1 % instead of 25.5 % and the EP side as real time; the
+run logs are what caught it.
+
+## 4. What this round changes
 
 Accepted, no code change anywhere:
 

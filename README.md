@@ -77,6 +77,12 @@ package identity, and the documented entry points we are allowed to use.
   40 %; only the vision encoder's own inference time matches the row (-5.2 to
   -7.6 %), so the row is an order-of-magnitude reference and not an end-to-end
   target - acceptance rule R10.
+  Section 3 of `OPTIMISATION2-20260921.md` turns the same method into a screening
+  pair (`tools/board-coverage-census.sh` + `tools/ort-provider-census.py`): of ten
+  models, seven have no CPU fallback at all, `pp_liteseg` puts 25.5 % of its frame
+  on the CPU EP (13 node executions, agreeing with the independent two-run
+  estimate of 26.8 %), `yolo26n` 8.2 % but insensitive to the pool width, and the
+  SigLIP2 encoder 0.6 % across 209 node executions.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

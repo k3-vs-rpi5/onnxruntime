@@ -18,6 +18,13 @@ The first two landed scripts are the baseline harness:
   both, a TCM sample taken inside every run, and both the provider's trace and ORT's per-node
   profile attached. The TCM sample is the point: it is what shows whether two runs being compared
   were the same AI configuration, and the first pair run without it was not.
+* `board-coverage-census.sh` + `ort-provider-census.py` - the screening pair that answers "does this
+  model hand work back to the CPU EP, and how much of the frame is that". The board script profiles a
+  model list in the deployment shape; the host script parses the profiles next to their run logs and
+  prints per-provider shares, per-operator cost and the EP-boundary nodes. It reads the CPU side as
+  time and the provider's spans as spans only - the profile's provider spans sum to more than the
+  frame, because a subgraph span covers work the provider parallelises internally.
 
-All three run on the board; the host pushes them and pulls the logs. Results of the 2026-09-21
-rounds are in `../BASELINE*-20260921.md` and `../OPTIMISATION*-20260921.md`.
+The board scripts run on the board and the host pushes them and pulls the logs. Results of the
+2026-09-21 rounds are in `../BASELINE*-20260921.md`, `../OPTIMISATION*-20260921.md` and
+`../METHOD-ALIGNMENT-20260921.md` §7.
