@@ -125,3 +125,23 @@ What is left for image-heavy VLM work is therefore **service policy, not runtime
 send fewer frames (an embodied agent at 1 fps spends 152 ms of every second, 15 % of the cluster, on
 an encoder that could be run at 2-3 fps), or accept the 2.6x image surcharge of section 3. That is a
 product decision with a measured price on it, which is as far as this round can take it.
+
+## 6. The harness defect this round found, and why the numbers survived it
+
+While re-running the cells to write this document, **two `llama-server` processes survived their
+cell's `SIGTERM` and kept port 8099.** That matters more than it sounds: if the next cell's server had
+started against that port it would have failed to bind, the client would have talked to the *previous*
+configuration, and the cell's tag would have said otherwise - a silent wrong answer, not a crash.
+
+The evidence survived because every cell's server log carries two things that make it
+self-checking: the `[SMT][vision] Spacemit EP enabled (... INTRA_THREAD_NUM=N)` banner of the
+configuration that actually served it, and exactly one `listening on` line. All six image cells and
+the three stagger cells check out, and none of the logs contains a bind failure - so each cell was
+served by its own server, and the affected processes were leftovers created *after* their cell's data
+was taken.
+
+`tools/board-vlm-service-shape.sh` is the fixed harness: it stops any server with `SIGTERM`, waits,
+escalates to `SIGKILL`, refuses to continue if one survives, refuses to start if the port still
+answers, prints the banner into the cell record, and asserts exactly one server process before the
+client runs. Re-measuring one cell through it reproduced the published value (34.71 t/s against
+34.65), which is the check that the hardening did not change the measurement.

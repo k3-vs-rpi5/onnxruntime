@@ -24,6 +24,16 @@ The first two landed scripts are the baseline harness:
   prints per-provider shares, per-operator cost and the EP-boundary nodes. It reads the CPU side as
   time and the provider's spans as spans only - the profile's provider spans sum to more than the
   frame, because a subgraph span covers work the provider parallelises internally.
+* `board-session-options.sh` - the session-level option sweep (graph optimisation level, executor
+  mode, memory arena and pattern, spinning, environment allocators) for one model, one variable at a
+  time, in the deployment shape.
+* `board-vlm-service-shape.sh` (+ `vlm-service-shape-client.py`, `vlm-decode-shape-client.py` in the
+  evidence directory) - one VLM service-shape cell: N simultaneous image requests against one server,
+  with a server lifecycle that cannot lie. It stops any previous server with TERM, waits, escalates to
+  KILL, refuses to continue if one survives, refuses to start if the port still answers, prints the
+  configuration banner into the cell record and asserts a single server process. Two servers survived
+  their SIGTERM in round 7; had the port stayed busy, the next cell would have measured the previous
+  configuration under a new name.
 
 The board scripts run on the board and the host pushes them and pulls the logs. Results of the
 2026-09-21 rounds are in `../BASELINE*-20260921.md`, `../OPTIMISATION*-20260921.md` and
