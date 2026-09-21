@@ -83,6 +83,12 @@ package identity, and the documented entry points we are allowed to use.
   on the CPU EP (13 node executions, agreeing with the independent two-run
   estimate of 26.8 %), `yolo26n` 8.2 % but insensitive to the pool width, and the
   SigLIP2 encoder 0.6 % across 209 node executions.
+  `VLM-SERVICE-SHAPE-20260921.md` asks the same question of the VLM service and
+  gets the opposite answer: simultaneous requests share one pass over the weights,
+  so four concurrent decode streams give **2.91x** aggregate for -19 % per stream,
+  the image path reaches 1.77x because the vision stage re-encodes every frame and
+  contends for the same eight cores, and the encoder's width (one line in the
+  model's `config.json`) is worth 14 % of aggregate at that load.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
