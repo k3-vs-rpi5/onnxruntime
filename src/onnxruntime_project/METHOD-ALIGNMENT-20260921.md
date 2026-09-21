@@ -129,7 +129,9 @@ time of their measurement.
 * **R5 distribution** - latency-sensitive work (perception loops, control) quotes P50/P90/P99 and the
   sustained-loop span, not only the mean.
 * **R6 numeric gate** - any precision, layout, coverage or operator change passes tensor-dump
-  equivalence (or a stated tolerance with the reasoning) before its speed is quoted.
+  equivalence (or a stated tolerance with the reasoning) before its speed is quoted. The dump
+  itself perturbs execution (measured: resnet50 5.48 ms without `SPACEMIT_EP_DUMP_TENSORS`, 29.15 ms
+  with), so a dump run is a numeric instrument only and never a timing instrument.
 * **R7 AI-cluster evidence** - work claimed on the AI cluster carries TCM occupancy naming the pid and
   the measured thread/affinity state; per-CPU counters are never used.
 * **R8 interference isolation** - a two-cluster or pre/post-processing claim states the load on the
@@ -170,3 +172,18 @@ time of their measurement.
    torch wheel plus `--no-deps` for the rest, run against `fastvlm_vision.f16.onnx`. This round
    installed pip and started that path but did not finish it; the measurement above (ViT int8 vs
    fp16 = 2.17x) is what makes it worth the next slot.
+
+## 8. Packaged tarball against the board's deb pair (the one-time check of Section 7.3)
+
+Same instrument, same models, same flags; the loader was verified (`LD_LIBRARY_PATH=/usr/lib ldd`
+resolves `libonnxruntime.so.1` to `/usr/lib`):
+
+| library set | digests | resnet50 int8 @8 | vit_b_16 int8 @8 |
+|---|---|---|---|
+| release tarball 2.0.6 | runtime `93bb7560...`, provider `dcc95030...` | 5.469 ms | 23.387 ms |
+| board deb 2.0.6 | runtime `076d9e83...`, provider `d8fa3633...` | 5.477 ms (+0.15 %) | 23.483 ms (+0.41 %) |
+
+and the numeric gate agrees: with `SPACEMIT_EP_DUMP_TENSORS` on resnet50 in both sets, **all 60
+intermediate tensors are bit-identical**. So the two 2.0.6 builds are behaviourally equivalent for
+the workloads measured here; a future number only has to say which set it used. Our round-1 tables
+used the tarball, the VLM rounds used the deb pair through the board's packaged llama-server.
