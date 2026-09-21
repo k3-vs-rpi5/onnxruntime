@@ -154,6 +154,14 @@ package identity, and the documented entry points we are allowed to use.
   60 % parallel scaling, and the workload is compute-bound - its weight streaming is
   ~3.1 GB/s against a 26 GiB/s roof. Configuration is exhausted; the fundamentals are
   not, and the missing factor lives inside the closed provider.
+  With the K3 A100's dense int8 specification (~15 TOPS, quoted by the operator;
+  the local documentation only carries K1's measured 511.53 GOPS/core) the same
+  inference extracts **6.1 %**, and the provider's own per-operator trace says why:
+  **half of the executed work is not matrix work at all** (activations 24.7 %, concat
+  11.3 %, transpose 5.4 %, quantise 3.5 %, shape 2.8 %), and the conv half runs at
+  ~12 % of the matrix peak. Neither roof is saturated - 6-25 % of compute, 11 % of
+  memory - so the section also retracts its earlier "compute-bound" wording: the
+  limiter is how the provider executes this graph.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

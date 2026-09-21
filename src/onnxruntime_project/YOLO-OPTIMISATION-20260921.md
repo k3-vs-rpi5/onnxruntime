@@ -144,19 +144,60 @@ Measured on this board:
 
 ### 7.2 What YOLOv8n actually extracts
 
-YOLOv8n at 640² is ~8.7 GFLOPs (the published architecture figure, ~4.4 GMACs) per inference:
+YOLOv8n at 640² is ~8.7 GFLOPs (the published architecture figure, ~4.4 GMACs) per inference. Two
+denominators are in play and both are worth carrying, because they bracket the answer:
 
-| measurement | achieved | against peak |
-|---|---|---|
-| eight cores, 9.538 ms | **912 GOPS** | **24.8 %** of 3.68 TOPS |
-| one thread, 44.30 ms (no-DFL model) | 196 GOPS | 42.6 % of 460 GOPS per core |
+* **3.68 TOPS** - the K1 A60 figure above, clock-scaled to this board's 1.8 GHz (the only *measured*
+  number the local documentation contains);
+* **~15 TOPS** - the K3 A100 cluster's dense int8 specification as the operator states it. Our local
+  documentation does not carry a K3 peak, so this one is quoted, not measured here, and it is the
+  number the rest of this section uses so that the conclusion does not depend on the smaller figure.
+
+| measurement | achieved | against 3.68 TOPS | against ~15 TOPS |
+|---|---|---|---|
+| eight cores, 9.538 ms | **912 GOPS** | 24.8 % | **6.1 %** |
+| one thread, 44.30 ms (no-DFL model) | 196 GOPS | 42.6 % | 10.5 % |
 
 The two numbers together decompose the loss: **per-core kernel efficiency is ~43 %**, and **parallel
-scaling is 4.83x on eight cores (60 %)**, and 0.43 x 0.60 = 26 % - the cluster figure. The model is
-**compute-bound, not memory-bound** (310 FLOP/byte against a machine balance of ~130), so the missing
-factor really is arithmetic efficiency inside the provider's kernels and graph execution, not
-bandwidth, not clock, not TCM occupancy (all eight blocks are held for the whole run, one per
-thread).
+scaling is 4.83x on eight cores (60 %)**, and 0.43 x 0.60 = 26 % - the cluster figure, against the
+smaller denominator.
+
+**A correction, because the earlier draft of this section said "compute-bound" and that is the wrong
+word.** Position on a roofline is not the same as saturation. Measured, this workload saturates
+*neither* roof: 6-25 % of the matrix peak and 11 % of the memory roof. What is true is that its
+arithmetic intensity (310 FLOP/byte) sits below a 15 TOPS machine balance (~536 FLOP/byte), so if a
+kernel ever did reach peak, memory would become the limit - but at 3 GB/s of a 26 GiB/s roof it is
+nowhere near that either. The limiter is neither silicon throughput nor bandwidth: it is how the
+provider executes this graph.
+
+### 7.2.1 Where the executed time actually goes
+
+The provider's own trace (`SPACEMIT_EP_DEBUG_PROFILE` on a YOLOv8n run, 174 operator types) answers
+that directly. Summed over the eight threads, per inference:
+
+| family | ms per inference (thread-summed) | share | calls per inference |
+|---|---|---|---|
+| **conv / GEMM (the only int8 matrix work)** | 34.752 | **50.8 %** | 512 |
+| activations and softmax | 16.926 | 24.7 % | 544 |
+| Concat | 7.714 | 11.3 % | 136 |
+| Transpose | 3.714 | 5.4 % | 48 |
+| quantise / dequantise (PPQ) | 2.376 | 3.5 % | 8 |
+| shape and data movement | 1.946 | 2.8 % | 96 |
+| other | 0.987 | 1.4 % | 48 |
+
+Two consequences that answer "how can 15 TOPS be a bottleneck?" - it is not, and the trace shows why:
+
+1. **half of the executed work cannot use the matrix units at all.** Activations, softmax, concat,
+   transpose, quantise/dequantise and shape ops are 49.2 % of thread time and contain essentially none
+   of the model's 8.7 GFLOPs. A 15 TOPS int8 peak is irrelevant to them; they run on the vector and
+   scalar paths;
+2. **even the matrix half runs far from peak.** Attributing the whole 8.7 GFLOPs to the conv family
+   gives at best 8.7 GFLOPs / (0.508 x 9.538 ms) = **~1.8 TOPS, about 12 % of 15 TOPS** - and that is
+   an upper bound, since the conv time also contains its own data movement.
+
+So the missing factor is spread across the graph: a matrix half that runs at ~12 % of peak and a
+non-matrix half that is half the time. Both are properties of the provider's execution, and neither
+is reachable by runtime configuration.
 
 Caveats, stated because they bound the claim: (a) the published micro-benchmark is K1's A60 core at
 2 GHz, and this is a K3 A100 at 1.8 GHz - the per-core figure is the same ISA family, not the same
