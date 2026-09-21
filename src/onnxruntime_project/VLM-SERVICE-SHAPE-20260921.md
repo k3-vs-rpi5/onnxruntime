@@ -259,3 +259,79 @@ encoder (152.01 ms standalone) and its image-token ingest appears separately in 
 places, which is why a single "vision stage" number cannot be compared across them - and why the
 published VLM table, whose statistic is still unnamed, stays an order-of-magnitude reference under
 rule R10.
+
+## 9. Beating the published row with the image held fixed
+
+The image is a **controlled variable** in this project: same file, same request, same prompt, same
+answer length in every cell below, and no lower-resolution vision variant is carried as an
+optimisation (section 9.4 records what that would have been worth, as a number only). What is left is
+the runtime around the image, and this section is the campaign to beat the published row across it.
+
+### 9.1 The one comparison that is defined - and it is ahead
+
+Their own table varies the vision encoder's core count against a fixed 8-thread language model, so
+that is the axis on which a like-for-like comparison exists at all. Same model package, same 384²
+input, same ONNX file:
+
+| condition (384², 8-thread LLM) | vision 4 cores | vision 8 cores |
+|---|---|---|
+| published row | 340.42 ms | 245.61 ms |
+| our encoder measurement, dense-accuracy setting off | 236.57 ms | 185.12 ms |
+| our encoder measurement, dense-accuracy setting **on** (their documented method, which our earlier runs omitted) | 236.08 ms | 184.88 ms |
+| **delta against the published row** | **-30.7 %** | **-24.7 %** |
+
+The dense-accuracy setting is neutral to +-0.3 % on this model, so the comparison does not depend on
+it - which is worth knowing, because it was the one documented condition our earlier runs had missed.
+Under the reading their own fastvlm row supports (the vision encoder's own inference time, section
+7.2), we are ahead by a quarter on the 8-core column and a third on the 4-core column.
+
+### 9.2 Nine image-neutral configurations: all neutral or worse
+
+Same request, same image, first request of a fresh server, the number being the served stage and - in
+brackets - the prompt-eval rate that contains it:
+
+| configuration | served stage | prompt eval |
+|---|---|---|
+| baseline (`-t 8`, KV f16, mmap on) | 975 ms | 1176 ms (137.7 t/s) |
+| + `SPACEMIT_EP_DENSE_ACCURACY_LEVEL=1` | 977 ms | 1175 ms (137.9 t/s) |
+| + `-fa 1` | 976 ms | 1174 ms (138.0 t/s) |
+| + `-tb 8` | 977 ms | 1180 ms (137.3 t/s) |
+| + `-ub 128` | 975 ms | 1184 ms (136.9 t/s) |
+| + `-fa 1 -tb 8 -ub 128` | 969 ms | 1170 ms (138.4 t/s) |
+| + `--no-mmap` | 990 ms | 1194 ms (135.7 t/s) |
+| + KV `q8_0` | **1195 ms** | **1415 ms (114.5 t/s)** |
+| + `--no-mmap` + KV `q8_0` | **1200 ms** | **1427 ms (113.5 t/s)** |
+
+The first seven sit inside +-0.8 % of each other: on this board, with this image and this model, the
+image path is at its measured local optimum for the runtime we can reach. The two that move it, move
+it the wrong way by a fifth - quantising the KV cache costs 20 % of the image path, the opposite of
+the usual expectation on a memory-bound workload.
+
+### 9.3 Core allocation under load: their own axis, already at its optimum
+
+Four simultaneous image requests, image fixed, 32 tokens each, aggregate throughput:
+
+| allocation | aggregate |
+|---|---|
+| LLM 8 + vision 8 | **15.40 t/s** (15.25 / 15.71 across repeats) |
+| LLM 8 + vision 4 | 15.25 t/s |
+| LLM 4 + vision 4 | **9.71 t/s** |
+| LLM 4 + vision 8 | **9.87 t/s** |
+
+The vision encoder gains little from doubling its cores - section 8's decomposition predicts exactly
+that, since it is a fifth of the stage - while the language model loses more than a third of the
+service throughput without all eight. The vendor's documented "4+4 allocation" advice is for two
+*independent* inference tasks (llama + llama, llama + onnxruntime); splitting the cores *inside* one
+VLM request costs 36 %.
+
+### 9.4 Out of scope, kept as a number
+
+The package's 224² variant would cut the image tokens from 162 to 67 and the served stage from 969 ms
+to 367 ms - about 600 ms of every frame in a streaming pipeline. That is an *image* change, so it is
+not carried as an optimisation here; and the quality screening that was run to price it does not
+price it either: on a nine-question objective set over the board's own images (ground truth by
+construction: two rectangles in `frame-640.png`, one being beige and to the right of the dark one),
+the model answered 12/18 at 224², 12/18 at 384² and 12/18 at 768², **failing the same questions at
+every resolution** - it reports one rectangle instead of two, places the beige one on the left, and
+invents a circle that is not there. The screening set therefore cannot discriminate resolutions, and
+the failures it exposes belong to the model and the prompt, not to the image size.

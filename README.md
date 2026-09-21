@@ -116,6 +116,18 @@ package identity, and the documented entry points we are allowed to use.
   cost is therefore set by the image's token count, not by the encoder - the
   encoder is 20 % of the stage - which makes the resolution variant the lever and
   the encoder's thread count nearly irrelevant to it.
+  Section 9 holds the image fixed as a controlled variable and beats the published
+  row on the one axis where a like-for-like comparison exists: the vision encoder at
+  384² is **-30.7 %** (4-core column) and **-24.7 %** (8-core column) against it,
+  with the vendor's documented dense-accuracy setting measured as neutral. Nine
+  image-neutral runtime configurations (flash attention, batch threads, micro-batch,
+  mmap, KV quantisation, and combinations) are all neutral to +-0.8 % or worse -
+  KV `q8_0` costs 20 % of the image path - and the vendor's own core-count axis is
+  already at its optimum: LLM 8 + vision 8 gives 15.40 t/s under four-way load
+  against 9.71/9.87 when the language model is cut to four threads. Lower-resolution
+  variants are recorded as measured and out of scope (an image change): 224² would be
+  worth ~600 ms per frame, and the nine-question screening set answers 12/18 with the
+  *same* failures at 224/384/768.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
