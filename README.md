@@ -182,6 +182,17 @@ package identity, and the documented entry points we are allowed to use.
   highest-priority candidates together are 16.3 MB, so acquisition is not the obstacle.
   It also records an evidence-integrity catch: the file filed as `rfdetr-nano.fp16.onnx`
   is a 434-byte archive error page, not a model.
+  `OPERATOR-CONVERTER-20260922.md` answers the next question - can we rewrite the graph
+  so the provider claims all of it - with the fallback inventories measured here:
+  depth 18.4 % (`Resize` 6.34 ms, `Cast` 2.14, `Pow` 2.00, `Exp` 0.11 - every one but
+  `Exp` is **in the provider's supported list**, so these are capability-check failures,
+  not missing operators), `pp_liteseg` 25.5 % and `yolo26n` 8.2 %. The vendor's own
+  `onnxslim` was run on the depth model and changed **nothing** (op counts and the 15 CPU
+  node executions identical), so a capability-driven converter is genuinely missing
+  rather than already provided. The document specifies the rule library in order of
+  measured prize, the numeric gate that must precede any speed claim, and picks
+  `yolo26n-depth` as the first target since closing its fallback would take the frame
+  from 67.62 ms toward ~55 ms.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
