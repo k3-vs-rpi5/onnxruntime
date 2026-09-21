@@ -171,6 +171,17 @@ package identity, and the documented entry points we are allowed to use.
   DFL head ~12 % in Softmax/Concat/Sigmoid, no-DFL head 13 % in ReduceSum and transposes).
   Pricing for the record, both out of contract: removing the non-matrix half would be worth
   ~2x, removing only the segmentation head's transposes up to 15 % on that model.
+  `MODEL-ALTERNATIVES-20260922.md` opens the operator-directed substitution track -
+  replacing what the board is weak at, domain by domain, in a separate scope from the
+  frozen models. It records the two measured weaknesses (`pp_liteseg` 25.5 % of its
+  frame on the CPU EP, `yolo26n` 8.2 %), maps the vendor's own 42-family catalogue onto
+  the common vision domains, names the same-domain alternatives already measured
+  EP-complete (`yolov8n-seg` 12.85 ms against the published 12.75; `yolov8n`/`s`,
+  `yolo12n`), and lists the empty domains by priority with a HEAD-checked menu: pose
+  3.80 MB, depth 10.46 MB, OCR det+rec 2.03 MB, face recognition 1.07 MB - the four
+  highest-priority candidates together are 16.3 MB, so acquisition is not the obstacle.
+  It also records an evidence-integrity catch: the file filed as `rfdetr-nano.fp16.onnx`
+  is a 434-byte archive error page, not a model.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

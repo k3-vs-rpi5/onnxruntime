@@ -109,6 +109,13 @@ AI 工作的 ONNX 侧。两个产物必须放在一起看：承载 SpacemiT 构�
   48 次 Transpose。每个架构还有自己的"非矩阵签名"（分割头 15 % 在 Transpose、`yolo12n` 31 % 在激活、DFL 头
   约 12 % 在 Softmax/Concat/Sigmoid、no-DFL 头 13 % 在 ReduceSum 与两次 Transpose）。为记录而定价（两者都出
   契约）：去掉整个非矩阵一半约值 2 倍，仅去掉分割头的 Transpose 最多值该模型 15 %。
+  `MODEL-ALTERNATIVES-20260922.md` 开启**由你指定的"模型替代"轨道**（与被冻结模型的优化轨道分开）：
+  记录两处实测弱势（`pp_liteseg` 25.5 % 帧时间落在 CPU EP、`yolo26n` 8.2 %），把厂商自己的 42 个模型族
+  映射到常见视觉领域，给出**已实测为 EP 完整覆盖**的同域替代（`yolov8n-seg` 12.85 ms 对官方 12.75；
+  `yolov8n/s`、`yolo12n`），并按优先级列出空白领域与经 HEAD 核对的清单：pose 3.80 MB、depth 10.46 MB、
+  OCR 检测+识别 2.03 MB、人脸识别 1.07 MB——前四个候选合计仅 **16.3 MB**，所以障碍不是获取而是决策。
+  另外记录一处证据完整性问题：归档中名为 `rfdetr-nano.fp16.onnx` 的文件其实是 434 字节的归档错误页，
+  不是模型。
   `src/onnxruntime` 未做任何修改。
 
 ## 工作区登记
