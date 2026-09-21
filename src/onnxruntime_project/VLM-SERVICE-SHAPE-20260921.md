@@ -210,3 +210,52 @@ image path pays less than the text path - and the magnitudes are the model's own
 served frame at one request is 1172 ms of image ingest against 1278 ms of decode for a 32-token
 answer, so the vision stage is now as large as the thing it contends with, which is why its
 concurrency gain is the smaller of the two.
+
+## 8. What the served image stage actually contains (no new material needed)
+
+Section 7 left a contradiction: the server's `image prefill (smt)` line reads 969 ms while the
+encoder measured alone is 184.52 ms, and the stage does not respond to the encoder's thread count.
+Three instruments already in hand settle it.
+
+**The server's own execution-provider trace.** Starting the server with
+`SPACEMIT_EP_DEBUG_PROFILE` makes the media worker write its own Chrome trace
+(`vlm-second-model/qwen08b-server-ep-trace.json`). In a session with one warm-up and four image
+requests it contains exactly **five** subgraph executions of 191.9-198.9 ms, i.e. **one ~195 ms
+encoder run per request**, matching the standalone measurement. The 969 ms stage is therefore not the
+encoder.
+
+**A text-only control.** The same server, same session: a 230-token text prompt with no image costs
+**1523.35 ms of prompt eval (6.62 ms/token)**. So the language model's ingest of a long prompt costs
+about 6.6 ms per token on this board, and an image contributes ~160 tokens.
+
+**The resolution variants already in the package.** Qwen3.5-0.8B ships 224/384/768 vision graphs; the
+same request against the 224 variant:
+
+| variant | image tokens in the prompt | served stage | prompt eval | time to first token |
+|---|---|---|---|---|
+| 384² | 162 | 969 / 963 ms | 1172.34 ms (7.24 ms/token) | 361.7 / 352.4 ms |
+| 224² | 67 | 367 / 365 ms | 560.21 ms (8.36 ms/token) | 225.1 / 213.1 ms |
+
+Fitting the two points: **stage ~= encoder + 4.7 ms per image token** - 195 + 4.7x162 = 956 ms against
+969 measured, 62 + 4.7x67 = 377 ms against 367. So the stage is the encoder *plus the language
+model's ingest of the image tokens*, which is why the encoder's thread count barely moves it and why
+it scales with the image area: the area sets the token count.
+
+Two consequences, both deployment-level and both free:
+
+1. **The per-image cost is dominated by the number of image tokens, not by the encoder.** On this
+   model one image token costs about 4.7 ms of prompt ingest; the encoder is 195 ms of a 969 ms
+   stage - 20 %. Any lever aimed at the vision encoder (threads, affinity) can move at most that
+   fifth;
+2. **the resolution variant is the lever, and it is a quality/cost dial rather than a speed trick.**
+   Moving from 384² to 224² cuts the image tokens from 162 to 67 and the served stage from 969 ms to
+   367 ms, worth 137 ms of time to first token and ~600 ms of every frame in a streaming pipeline.
+   Which variant is acceptable is a quality question this project has not measured; the *price* of
+   each is now known.
+
+For contrast, the same instrument on fastvlm-0.5B reads differently: its stage (159/162 ms) *is* its
+encoder (152.01 ms standalone) and its image-token ingest appears separately in prompt eval
+(249.34 ms for 95 tokens, 2.62 ms/token). The two model families cost the same thing in different
+places, which is why a single "vision stage" number cannot be compared across them - and why the
+published VLM table, whose statistic is still unnamed, stays an order-of-magnitude reference under
+rule R10.

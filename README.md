@@ -108,6 +108,14 @@ package identity, and the documented entry points we are allowed to use.
   traps came with it: the Qwen3.5 family needs `--reasoning-budget 0 --reasoning
   off` or every answer is empty while tokens are counted, and the served
   `image prefill` stage does not move with the encoder width in either model.
+  Section 8 decomposes that stage with instruments already in hand: the server's
+  own execution-provider trace (`SPACEMIT_EP_DEBUG_PROFILE` inside the server) shows
+  one ~195 ms encoder run per request, a text-only control prices a prompt token at
+  6.6-7.1 ms, and the 224/384 resolution pair fits `stage ~= encoder + 4.7 ms per
+  image token` (384²: 162 tokens, 969 ms; 224²: 67 tokens, 367 ms). The per-image
+  cost is therefore set by the image's token count, not by the encoder - the
+  encoder is 20 % of the stage - which makes the resolution variant the lever and
+  the encoder's thread count nearly irrelevant to it.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
