@@ -136,6 +136,15 @@ package identity, and the documented entry points we are allowed to use.
   tool - the same ~10 % optimism already documented for the older LLM rows, now
   measured on a prefill row. None of it is a runtime setting on this board; the
   reproducible margin is the encoder's (-24.7 % at eight cores).
+  `YOLO-OPTIMISATION-20260921.md` collects the family's map, including three measurements
+  the earlier rounds had not made: the provider's own options (eight threads on one
+  stream is optimal for all six detectors; core affinity is worth +3.1 % only at four
+  threads, which are 49 % slower), the eight cores as threads x streams (splitting
+  costs 8-53 % of aggregate throughput), and the X100 as a co-processor (892.8 ms for
+  `yolov8n` against 9.17 ms on the AI cluster, 97x). Sustained load does not decay
+  (105.4 inf/s flat over three minutes). The open question is the fitted 4.2 ms per
+  inference that does not scale with cores - 45 % of the frame - with the runtime's
+  own `/dev/tcm_sync_mem` fallback as one candidate, priced but untested.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
