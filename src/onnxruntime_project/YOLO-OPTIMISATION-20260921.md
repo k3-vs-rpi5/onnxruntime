@@ -117,3 +117,65 @@ price:
 Within the current contract - model fixed, runtime and deployment in scope - the YOLO family on this
 board is at its measured optimum: every provider option, session option, core allocation, cluster
 choice and sustained-load effect has been measured, and none of them moves it.
+
+## 7. Is the *hardware* at its limit? No - a roofline check
+
+Everything above is about configuration. It says nothing about whether the silicon is being used
+well, and the honest answer to that question is **no**. The vendor publishes both the peak and the
+instrument to check it.
+
+### 7.1 The denominators, from the vendor's own micro-benchmark
+
+`docs-ai/architecture/concept.md` reports the result of running `cpufp` on the AI core: the int8
+matrix unit (`vmadot(s32,s8,s8)`) sustains **511.53 GOPS on one core** and **2.046 TOPS on four
+cores** - linear scaling, and their own arithmetic confirms it (a 4x8x4 tile is 128 MACs; at 2 GHz
+that is 256 GMAC/s = 512 GOPS, counting a MAC as two operations).
+
+Measured on this board:
+
+* the AI cores run at **1.8 GHz under load and 1.8 GHz is their maximum** (`cpuinfo_max_freq` on
+  cpu8-15, userspace governor) - so no DVFS headroom exists; scaling the published per-core figure to
+  the clock we actually have gives **460 GOPS per core, 3.68 TOPS for the eight-core cluster**;
+* the X100 cores run at 2.0 GHz against a 2.15 GHz maximum - **7.5 % is being left on that cluster**,
+  which matters only for the 0.33 ms of pre/post-processing a YOLO frame spends there;
+* memory: the A100 cluster's measured read roof is ~26 GiB/s, and YOLOv8n's int8 weights are 3.54 MB.
+  Even if all eight threads read the whole weight file per inference, that is 28 MB per inference, or
+  **~3.1 GB/s at 109 inf/s - 11 % of the roof**.
+
+### 7.2 What YOLOv8n actually extracts
+
+YOLOv8n at 640² is ~8.7 GFLOPs (the published architecture figure, ~4.4 GMACs) per inference:
+
+| measurement | achieved | against peak |
+|---|---|---|
+| eight cores, 9.538 ms | **912 GOPS** | **24.8 %** of 3.68 TOPS |
+| one thread, 44.30 ms (no-DFL model) | 196 GOPS | 42.6 % of 460 GOPS per core |
+
+The two numbers together decompose the loss: **per-core kernel efficiency is ~43 %**, and **parallel
+scaling is 4.83x on eight cores (60 %)**, and 0.43 x 0.60 = 26 % - the cluster figure. The model is
+**compute-bound, not memory-bound** (310 FLOP/byte against a machine balance of ~130), so the missing
+factor really is arithmetic efficiency inside the provider's kernels and graph execution, not
+bandwidth, not clock, not TCM occupancy (all eight blocks are held for the whole run, one per
+thread).
+
+Caveats, stated because they bound the claim: (a) the published micro-benchmark is K1's A60 core at
+2 GHz, and this is a K3 A100 at 1.8 GHz - the per-core figure is the same ISA family, not the same
+silicon, so the denominator should eventually be re-measured here with the same tool; (b) not every
+one of the 8.7 GFLOPs is executable as an int8 matrix op in this graph - the QDQ dequantisation, the
+concat/reshape head and the final decode run as other ops - so the share of the 8.7 GFLOPs that the
+IME units could in principle retire is below 100 %. Neither caveat closes a gap of this size.
+
+### 7.3 What that means for the optimisation programme
+
+So the two statements are both true and they are different statements:
+
+* **configuration**: exhausted. Session options, provider options, core affinity, stream splitting,
+  the second cluster, sustained load - measured, all at or worse than the current setting;
+* **fundamentals**: not exhausted. The cluster delivers ~25 % of its int8 peak on this workload, with
+  the loss sitting in per-core kernel efficiency and parallel scaling. That is where a further 2-4x
+  would have to come from, and it is inside the closed provider or in how the model's graph is
+  executed - the two places this project cannot reach without a contract change or vendor work.
+
+The one measurement still missing to make that claim airtight is a per-board IME micro-benchmark
+(`cpufp` or equivalent on cpu8-15 through the documented runtime), which would replace the scaled K1
+figure with a measured K3 denominator.

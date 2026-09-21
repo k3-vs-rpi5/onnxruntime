@@ -145,6 +145,15 @@ package identity, and the documented entry points we are allowed to use.
   (105.4 inf/s flat over three minutes). The open question is the fitted 4.2 ms per
   inference that does not scale with cores - 45 % of the frame - with the runtime's
   own `/dev/tcm_sync_mem` fallback as one candidate, priced but untested.
+  Section 7 of that document answers the harder question - whether the *hardware* is
+  at its limit - and the answer is no: against the vendor's own `cpufp` peak for the
+  int8 matrix unit (511.53 GOPS per core, 2.046 TOPS on four cores), a YOLOv8n
+  inference extracts **912 GOPS = 24.8 %** of the eight-core figure at the 1.8 GHz
+  the board actually runs (the AI cores are at their maximum clock; the X100 is at
+  2.0 of 2.15 GHz). The loss decomposes into ~43 % per-core kernel efficiency and
+  60 % parallel scaling, and the workload is compute-bound - its weight streaming is
+  ~3.1 GB/s against a 26 GiB/s roof. Configuration is exhausted; the fundamentals are
+  not, and the missing factor lives inside the closed provider.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
