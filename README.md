@@ -193,6 +193,17 @@ package identity, and the documented entry points we are allowed to use.
   measured prize, the numeric gate that must precede any speed claim, and picks
   `yolo26n-depth` as the first target since closing its fallback would take the frame
   from 67.62 ms toward ~55 ms.
+  Section 5 of that document is the operator-directed requirement for the conversion
+  logic - **query first, then act** - with evidence in three grades (documented
+  constraint, cross-model claimed/refused evidence, vendor example code) and a probe
+  permitted only to confirm a derived rule, never to fish. Its evidence registry is the
+  result of that discipline: `Resize` nearest+asymmetric is claimed everywhere;
+  linear+half_pixel is claimed **inside a QDQ graph** (`pp_liteseg`, 7/7, verifiable in
+  the provider's own subgraph dump) but refused as a standalone fp32/fp16 node; and the
+  natural Gather-based replacement **segfaults the provider** while every one of its
+  primitives passes in isolation - a robustness finding in its own right. Four candidate
+  rules were killed by evidence rather than shipped as guesses; the surviving line of
+  query (a Q/D/Q-wrapped probe) is named, along with its 6.34 ms prize.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

@@ -88,3 +88,50 @@ Honest risks:
 * a rewrite that changes numerics needs the tolerance gate and a task check, and a rewrite that
   silently changes *semantics* (e.g. a Resize coordinate mode) is worse than no rewrite at all - the
   numeric gate exists for exactly that.
+
+## 5. Requirements for the conversion logic (operator-directed, 2026-09-22)
+
+**Query first, then act.** No rule is written before its evidence exists, and evidence has three
+grades, in this order:
+
+1. **documented constraint** - `onnxruntime_ep_ops.md` states it (e.g. `Resize` supports only
+   `asymmetric`/`half_pixel` and `nearest`/`linear`; `AveragePool` requires all pads zero when
+   `count_include_pad != 1`; `Split`/`Slice`/`Tile`/`Pad`/`Reshape`/`Unsqueeze`/`Squeeze` require their
+   secondary inputs to be constants; QDQ wants A asymmetric per-tensor and B symmetric per-channel);
+2. **cross-model evidence** - the same operator appears in several shipped models, some claimed and
+   some refused, and the difference identifies the rule. This is stronger than the documentation where
+   the two disagree, and it is how the `Resize` case below was resolved;
+3. **vendor example code** - how the vendor's own example prepares or feeds the model.
+
+A probe is only ever used to **confirm** a rule derived from the above, never to fish for one. Every
+rule records: its evidence, the graph it was applied to, the numeric-gate result, the re-census
+result, and its status (`accepted` / `rejected` / `needs more query`).
+
+### 5.1 Evidence registry: what the capability check actually accepts
+
+| operator / form | documented | measured | status |
+|---|---|---|---|
+| `Resize` nearest + asymmetric (+ `nearest_mode=floor`) | supported | claimed in fp16 and fp32, in every model that uses it (32 nodes) | confirmed |
+| `Resize` **linear + half_pixel**, inside a QDQ/int8 graph | supported | **claimed**: `pp_liteseg`'s 7 nodes are inside the provider's subgraph (its ORT profile contains no Resize node at all), and appear in the provider's own subgraph dump | confirmed |
+| `Resize` **linear + half_pixel**, standalone fp32 or fp16 | supported | **refused**: a standalone probe is executed by the CPU EP, and the same node in an fp16 graph is refused (1 of 66 Resize nodes in this project's inventory) | **documentation and behaviour disagree; the rule is not writable yet** |
+| `Resize` linear + `align_corners` | not supported | refused (2 nodes) | confirmed, needs a semantics-preserving replacement |
+| `Exp` | absent from the supported list | refused (1 node, 0.11 ms) | confirmed |
+| `Pow`, `Gather`, `Mul`, `Add` individually | supported | claimed in isolation (probe set: axes 2/3, int32/int64, negative axis, broadcast weights) | confirmed |
+| `Gather`-based separable interpolation (the natural replacement for linear Resize) | - | **the provider segfaults** on the graph, at every size tried, while each primitive passes in isolation | **rejected - and a robustness finding: the provider accepts a graph it cannot execute** |
+
+### 5.2 Rule status after this round
+
+| rule | evidence | numeric gate | re-census | status |
+|---|---|---|---|---|
+| `resize-attrs` (drop the irrelevant `nearest_mode` from a linear Resize) | inventory: claimed instances carry the ONNX default, the refused one carries `floor` | **bit-identical** | fallback unchanged (15 CPU nodes) | **rejected** - the discriminating property is elsewhere |
+| `resize-canonical` (`scales` -> `sizes`, drop `cubic_coeff_a`) | claimed node uses the `sizes` form with empty roi/scales | **bit-identical** | unchanged | **rejected** |
+| `resize-fp32` (fp16 linear Resize through fp32 casts) | 21 claimed instances are fp32 | 0.50 fp16 ulp | unchanged, and one more CPU node | **rejected** |
+| `resize` (linear Resize -> Gather/Mul/Add) | - | 0.24 fp16 ulp on the CPU EP | the provider **segfaults** | **rejected** |
+
+The `Resize` family therefore stands at *needs more query*, and the next query is named: a
+Q/D/Q-wrapped probe of the same `half_pixel + linear` Resize - if the QDQ route is what makes the
+provider claim it, the rule becomes "route the linear resize through the quantised path", and its
+price is measured (6.34 ms on this model) against a stated precision cost.
+
+This is the discipline working as intended: four candidate rules were killed by evidence rather than
+shipped as guesses, and the one that survives will arrive with its provenance attached.
