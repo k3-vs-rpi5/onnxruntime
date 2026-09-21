@@ -17,13 +17,16 @@
 # Env: M (model dir), GGUF (text model; defaults to the single *.gguf in the config dir's parent),
 #      PORT, IMG, TOKENS, STAGGER_MS, OUT.
 set -eu
-M=${M:-/root/vlm-fastvlm}
+# The config directory is the argument; the model directory is its parent unless M says otherwise, so
+# that a cell for a second model cannot silently load the first model's text weights.
+CFG_ARG=$1
+M=${M:-$(dirname "$CFG_ARG")}
 PORT=${PORT:-8099}
 IMG=${IMG:-/root/pic/frame-a.png}
 TOKENS=${TOKENS:-32}
 CLIENT=${CLIENT:-/root/vlm-service-shape-client.py}
 OUT=${OUT:-/tmp}
-CFG=$1
+CFG=$CFG_ARG
 CONC=$2
 TAG=$3
 
@@ -60,9 +63,11 @@ if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
 fi
 
 log="$OUT/vlm-cell-$TAG.server.log"
+# EXTRA_ARGS carries the per-model flags the vendor's own documentation uses (for the Qwen3.5 family
+# that is `--reasoning-budget 0 --reasoning off`, without which the answers come back empty).
 setsid nohup llama-server -m "$GGUF" --media-backend smt \
     --smt-config-dir "$CFG" -ctk f16 -ctv f16 -t 8 -c 1024 \
-    --host 127.0.0.1 --port "$PORT" > "$log" 2>&1 &
+    --host 127.0.0.1 --port "$PORT" ${EXTRA_ARGS:-} > "$log" 2>&1 &
 for i in $(seq 1 120); do
     curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1 && break
     sleep 1
@@ -80,7 +85,13 @@ grep -a -i "address already in use\|failed to bind" "$log" && {
     exit 1
 }
 
-python3 "$CLIENT" "$PORT" "$IMG" "$CONC" "$TOKENS" 2>&1
+# MODE=image (default) drives N simultaneous image requests; MODE=decode drives the text-only
+# `/completion` sweep with ignore_eos, which is the decode-throughput measurement.
+if [ "${MODE:-image}" = "decode" ]; then
+    python3 "$CLIENT" "$PORT" "$CONC" "$TOKENS" 2>&1
+else
+    python3 "$CLIENT" "$PORT" "$IMG" "$CONC" "$TOKENS" 2>&1
+fi
 grep -a -E "image prefill|prompt eval time|eval time" "$log" | tail -4
 echo "tcm busy at the end: $(spacemit-tcm-smi | grep -c busy)"
 stop_servers

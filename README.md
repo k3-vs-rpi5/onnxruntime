@@ -98,6 +98,16 @@ package identity, and the documented entry points we are allowed to use.
   +-2.5 %), `-o 0` costs 18.2 % and the parallel executor 9.8 % on the fallback-heavy
   segmenter, and the memory-policy family (arena, pattern, spinning, env allocators)
   is flat to +-1 %.
+  Section 7 adds the VLM category's second model, the vendor's Qwen3.5-0.8B
+  package: every round-7 direction generalises with smaller magnitudes (text decode
+  2.91x -> 1.88x at four simultaneous requests, image path 1.77x -> 1.34x, encoder
+  width worth 52.6 ms of time to first token instead of 87.3 ms), and the published
+  row for this model matches no candidate statistic at all - our encoder-only
+  number is 25-29 % faster than the row while time to first token is 22-47 %
+  slower - which confirms acceptance rule R10 on a second model. Two operational
+  traps came with it: the Qwen3.5 family needs `--reasoning-budget 0 --reasoning
+  off` or every answer is empty while tokens are counted, and the served
+  `image prefill` stage does not move with the encoder width in either model.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

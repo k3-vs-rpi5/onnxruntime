@@ -145,3 +145,68 @@ escalates to `SIGKILL`, refuses to continue if one survives, refuses to start if
 answers, prints the banner into the cell record, and asserts exactly one server process before the
 client runs. Re-measuring one cell through it reproduced the published value (34.71 t/s against
 34.65), which is the check that the hardening did not change the measurement.
+
+## 7. Second model: what generalises and what does not
+
+The category rule is "one or two models per category", so the round's conclusions were re-measured on
+the vendor's **Qwen3.5-0.8B** package (`Qwen3.5-0.8B.tar.gz`, 977,343,463 bytes, sha256
+`be44a9d2...`; text `qwen3_5vl_0.8b-text-q41.gguf` `143617d3...`; vision-384
+`51b71bdc...`; its own `config.json` `26a1971e...`, which ships `input_size: 384` and
+`spacemit_ep_intra_thread_num: 4`), pushed to the board and measured with the same harness. Raw:
+`vlm-second-model/` (29 files).
+
+### Two things had to be fixed before it would run at all
+
+* **the documented reasoning flags are not optional for this family.** Without
+  `--reasoning-budget 0 --reasoning off` every request "succeeds" with 32 tokens generated and an
+  **empty** answer: the model's output goes to the reasoning channel. With them, the same request
+  answers correctly. A VLM service that skips these flags looks like it works and returns nothing;
+* **the harness must derive the model directory from the config directory** (now fixed in the tool).
+  Filling only the config path left the text model at its previous default, and the server caught it
+  itself: `SMT hidden size (1024) does not match model embedding size (896)`.
+
+### The encoder, the served stage and time to first token
+
+| measurement | 4 threads | 8 threads |
+|---|---|---|
+| encoder alone, 384² (`perf_test`, our instrument) | 240.70 ms | **184.52 ms** |
+| encoder alone, 224² / 768² (8 threads) | - | 62.04 ms / 786.18 ms |
+| encoder alone, 384² at **one** thread | 600.37 ms | - |
+| **served** `image prefill (smt)` stage, 384² | 973 / 965 ms | **969 / 963 ms** |
+| served stage, 224² (8 threads) | - | 367 / 365 ms |
+| time to first token (cached prompt) | 414.3 / 403.8 ms | **361.7 / 352.4 ms** |
+| published row for this model, 384² | 340.42 | 245.61 |
+
+Three readings:
+
+* **the encoder width generalises, weakly**: eight threads beat four on time to first token by 52.6 ms
+  here against 87.3 ms on fastvlm, and by 1-2.5 % of aggregate under load against 8-14 % there. Same
+  direction, smaller prize;
+* **the publisher's row still does not identify a statistic.** Our encoder-only number is 25-29 %
+  *faster* than the row (on fastvlm that reading matched within 5-8 %), our time to first token is
+  22-47 % slower, and the server's own stage is 2.9-4x slower still. Two models, two different gaps,
+  one unnamed statistic: acceptance rule R10 is now confirmed on a second model rather than resting
+  on one;
+* **a new instrument finding: the served stage does not move with the encoder width in either model**
+  (fastvlm 159/162 ms at four and eight threads; Qwen3.5 969/973 ms), yet time to first token does
+  (-87 ms, -53 ms). So the banner's `SPACEMIT_EP_INTRA_THREAD_NUM` is not evidence that the vision
+  session used that many threads - the setting reaches something in the path, but not the stage the
+  log timestamps. The 224² probe is what proves the stage is encoder work at all: 969 -> 367 ms
+  against an area ratio of 0.34.
+
+### Under load, the second model is worse, not different
+
+| measurement | fastvlm-0.5B | Qwen3.5-0.8B |
+|---|---|---|
+| text-only decode, 1 / 2 / 4 simultaneous | 43.68 / 72.26 / 126.92 t/s | 21.94 / 31.50 / 41.19 t/s |
+| per-stream decode rate at 4 | 35.4 t/s | 13.3 t/s |
+| gain at four simultaneous (text) | **2.91x** | **1.88x** |
+| image requests, encoder 8, 1 / 2 / 4 simultaneous | 27.10 / 37.03 / 47.88 t/s | 11.47 / 13.33 / 15.40 t/s |
+| image requests, encoder 4, 1 / 2 / 4 | 25.16 / 33.14 / 41.89 t/s | 11.22 / 13.20 / 15.25 t/s |
+| gain at four simultaneous (image) | 1.77x | 1.34x |
+
+The direction is the same everywhere - concurrency pays, the encoder should take eight threads, the
+image path pays less than the text path - and the magnitudes are the model's own. On this model the
+served frame at one request is 1172 ms of image ingest against 1278 ms of decode for a 32-token
+answer, so the vision stage is now as large as the thing it contends with, which is why its
+concurrency gain is the smaller of the two.
