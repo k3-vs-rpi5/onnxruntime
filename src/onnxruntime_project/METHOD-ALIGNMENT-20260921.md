@@ -98,7 +98,7 @@ time of their measurement.
 | repetitions | `-r 10` in the vision example; LLM uses llama-bench defaults | `-r 10`, headline numbers from >= 3 independent runs (median) | ours stricter |
 | statistic | the tables quote one number per cell; the tool also prints P50/P90/P99 | we quote mean **and** the percentile rows, and P50/P90/P99 from a sustained loop where latency matters | ours stricter |
 | warm-up | not stated; the tool reports "First inference time cost" separately from the average | we verified the arithmetic (0.0550235 s / 10 = 5.502348 ms) and report **both**, plus session-creation time | ours stricter (their tables hide a 5-41x first-inference cost) |
-| thread configuration | `SPACEMIT_EP_INTRA_THREAD_NUM` / `-t` per row | same, **plus** a measured thread/TCM census: N intra -> N+1 threads, N TCM blocks, one AI core each | ours adds ground truth; the doc's "2x intra threads" note is wrong for 2.0.6 |
+| thread configuration | `SPACEMIT_EP_INTRA_THREAD_NUM` / `-t` per row, with ONNX Runtime's own intra-op pool pinned at one thread (`-x 1`) | same, **plus** a measured thread/TCM census (N intra -> N+1 threads, N TCM blocks, one AI core each) and the ORT pool sized to the deployment | ours adds ground truth; the doc's "2x intra threads" note is wrong for 2.0.6, and `-x 1` is a 2.32x under-measurement for graphs with a CPU fallback (`OPTIMISATION2-20260921.md` §2) |
 | engine identity | engine version, OS and date per table section | package digests (tarball `bebcdfb7...`; deb runtime `076d9e83...`, provider `d8fa3633...`), model digests, board state (governor, temperature, load) per run | ours stricter |
 | numeric/quality gate | none published for the quantised variants | tensor-dump equivalence before any precision/coverage claim (60 tensors, bit-identical when nothing should change) | ours stricter |
 | AI-cluster attribution | none | `spacemit-tcm-smi` occupancy naming the workload's pid + per-thread affinity + the workload's own rate | ours stricter (contract requirement) |
@@ -121,7 +121,11 @@ time of their measurement.
 * **R1 identity** - every result names: board packages (ort tarball + deb digests, llama.cpp package
   version), model digest, patch/commit hashes of anything we built.
 * **R2 instrument** - vendor-comparable numbers use the vendor's own binaries with the vendor's
-  flags; anything else is labelled as our instrument.
+  flags; anything else is labelled as our instrument. The session shape is part of the instrument:
+  the EP thread count *and* ONNX Runtime's own intra-op pool are recorded with every number, and the
+  pool is set to the deployment's width. The published matrix's `-x 1` is a declared deviation, kept
+  only where a graph has no CPU fallback (measured flat on seven of eight models, 2.32x on the
+  eighth).
 * **R3 warm/cold** - session creation, first inference and steady state are reported separately; a
   latency claim says which one it is.
 * **R4 repetitions** - >= 10 timed repeats per row; headline numbers are medians of >= 3 independent

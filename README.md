@@ -61,6 +61,13 @@ package identity, and the documented entry points we are allowed to use.
   latency, splitting the cores costs -36 %), and the two clusters tax each other
   by 10-25 % in both directions - with one invalid capture kept as such because
   two EP processes were fighting over the same eight TCM blocks.
+  `OPTIMISATION2-20260921.md` measures the frame around the model with the
+  vendor's own pipeline harness (pre- and post-processing together are 1-5 % of a
+  frame, which closes OpenCL pre-processing on measurement rather than taste) and
+  settles a method question with numbers: the published matrix command's `-x 1`
+  under-prices a graph whose EP claims only part of its nodes by **2.32x**, with
+  the named CPU-fallback nodes, the TCM samples and the provider's own trace
+  agreeing three ways.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
