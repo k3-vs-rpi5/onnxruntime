@@ -103,6 +103,12 @@ AI 工作的 ONNX 侧。两个产物必须放在一起看：承载 SpacemiT 构�
   矩阵运算**（激活/softmax 24.7 %、Concat 11.3 %、Transpose 5.4 %、量化 3.5 %、形状搬运 2.8 %），而矩阵
   那一半只跑到峰值的约 12 %。两个屋顶都没被打满（算力 6-25 %、内存 11 %），因此该节也**收回了我先前
   "compute-bound" 的措辞**——真正的限制是该 provider 执行这张图的方式。
+  第 8 节把同样的画像铺到整个家族（每模型一份 provider trace）：**每个 YOLO 模型都有 40-50 % 的执行时间不是
+  INT8 矩阵运算**（`yolov8s` 40.2 %，其余 49.3-50.2 %），且**没有任何单个算子占比超过约 6 %**——`yolov8n`
+  里最贵的单算子是检测头的 Softmax（占线程时间 5.6 %），而每帧要执行 512 次卷积、544 次激活、136 次 Concat、
+  48 次 Transpose。每个架构还有自己的"非矩阵签名"（分割头 15 % 在 Transpose、`yolo12n` 31 % 在激活、DFL 头
+  约 12 % 在 Softmax/Concat/Sigmoid、no-DFL 头 13 % 在 ReduceSum 与两次 Transpose）。为记录而定价（两者都出
+  契约）：去掉整个非矩阵一半约值 2 倍，仅去掉分割头的 Transpose 最多值该模型 15 %。
   `src/onnxruntime` 未做任何修改。
 
 ## 工作区登记

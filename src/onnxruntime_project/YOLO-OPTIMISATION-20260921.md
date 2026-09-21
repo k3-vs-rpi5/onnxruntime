@@ -220,3 +220,43 @@ So the two statements are both true and they are different statements:
 The one measurement still missing to make that claim airtight is a per-board IME micro-benchmark
 (`cpufp` or equivalent on cpu8-15 through the documented runtime), which would replace the scaled K1
 figure with a measured K3 denominator.
+
+## 8. Full operator census across the family
+
+Section 7.2.1 read one model. This is all six, each with its own provider trace (20 repetitions, 21
+subgraph executions per trace, deployment shape), analysed by
+`tools/ep-op-breakdown.py` - family, module and single-operator views. Raw: `yolo-traces/`.
+
+| model | wall, instrumented | wall, clean | thread-summed node time | **matrix share** | **non-matrix share** | largest non-matrix family |
+|---|---|---|---|---|---|---|
+| `yolov8n` | 13.07 ms | 9.54 ms | 68.29 ms | 50.7 % | 49.3 % | activation/softmax 25 % |
+| `yolov8s` | 21.13 ms | 16.60 ms | 122.99 ms | **59.8 %** | 40.2 % | activation/softmax 22 % |
+| `yolov8n-seg` | 18.05 ms | 12.85 ms | 95.75 ms | 50.3 % | 49.7 % | **Transpose 15 %** |
+| `yolov8n_no_dfl` | 13.07 ms | 9.17 ms | 68.51 ms | 49.8 % | 50.2 % | activation/softmax 16 % |
+| `yolo12n` | 32.74 ms | 22.57 ms | 160.35 ms | 49.9 % | 50.1 % | **activation/softmax 31 %** |
+| `yolo26n` | 21.20 ms | 14.37 ms | 93.66 ms | 55.8 % | 44.2 % | activation/softmax 20 % |
+
+(The instrumented wall is 1.27-1.48x the clean one, so the shares are the output of this table and the
+milliseconds are not - the same rule the project applies to every profiler.)
+
+Three findings, and they are family-wide rather than model-specific:
+
+1. **Between 40 % and 50 % of the executed time is not int8 matrix work** in every model of the
+   family. The dense-int8 peak applies only to the other half, so no single TOPS number describes
+   this workload: the smaller models sit at 50/50, and only the larger `yolov8s` shifts to 60/40
+   because its larger convolutions amortise the per-operator overheads better;
+2. **there is no hotspot to fix.** The most expensive single operator in `yolov8n` is the detection
+   head's `Softmax` at 5.6 % of thread time; per inference the graph executes 512 convolutions, 544
+   activation operators, 136 concatenations and 48 transposes. Optimising one kernel - however well -
+   cannot move this family by more than a few percent; improvement has to be structural;
+3. **each architecture has its own non-matrix signature**, which is what a graph-level discussion
+   would start from: the segmentation head spends **15 %** of its time in `Transpose` (four times
+   `yolov8n`'s 5 %), `yolo12n` spends **31 %** in activations, `yolov8n`'s DFL head is
+   Softmax + Concat + Sigmoid (~12 %), and the no-DFL variant replaces exactly that with a
+   `ReduceSum` and two transposes (13 % together) - the head is the head, whichever way it is
+   written.
+
+What that prices, for the record and out of contract: removing the non-matrix half entirely would be
+worth about **2x** on this family, and a graph edit that removed only the segmentation head's
+transposes would be worth up to **15 %** on that one model. Neither is available here - they are
+model and graph changes - but the numbers now exist instead of an assumption.

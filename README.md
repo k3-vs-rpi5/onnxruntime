@@ -162,6 +162,15 @@ package identity, and the documented entry points we are allowed to use.
   ~12 % of the matrix peak. Neither roof is saturated - 6-25 % of compute, 11 % of
   memory - so the section also retracts its earlier "compute-bound" wording: the
   limiter is how the provider executes this graph.
+  Section 8 extends that to the whole family with one provider trace per model: **40-50 % of
+  the executed time is not int8 matrix work in every YOLO model** (40.2 % on `yolov8s`,
+  49.3-50.2 % on the rest), and **no single operator carries more than ~6 %** - the head's
+  Softmax is 5.6 % of `yolov8n`'s thread time, against 512 convolution, 544 activation, 136
+  concatenation and 48 transpose calls per inference. Each architecture has its own
+  non-matrix signature (segmentation head 15 % in Transpose, `yolo12n` 31 % in activations,
+  DFL head ~12 % in Softmax/Concat/Sigmoid, no-DFL head 13 % in ReduceSum and transposes).
+  Pricing for the record, both out of contract: removing the non-matrix half would be worth
+  ~2x, removing only the segmentation head's transposes up to 15 % on that model.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
