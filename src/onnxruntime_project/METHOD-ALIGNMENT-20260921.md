@@ -142,6 +142,10 @@ time of their measurement.
   other cluster and the measured penalty.
 * **R9 state disclosure** - governor, frequency, temperature and system load are recorded with each
   number; large temperature or load excursions invalidate a run rather than being averaged in.
+* **R10 named statistic** - a published row is used as an acceptance target only when the statistic
+  it reports is known. Where it is not (the vendor's VLM table, §7.2), the row is an
+  order-of-magnitude reference only and the acceptance basis is our own named statistic -
+  encoder-only, time-to-first-token or end-to-end - stated with every number.
 * **R10 cache disclosure** - server-based measurements state the cache state (prompt/media) and the
   per-new-frame cost separately.
 * **R11 official comparison** - every claimed win states the corresponding published row (if one
@@ -191,3 +195,78 @@ and the numeric gate agrees: with `SPACEMIT_EP_DUMP_TENSORS` on resnet50 in both
 intermediate tensors are bit-identical**. So the two 2.0.6 builds are behaviourally equivalent for
 the workloads measured here; a future number only has to say which set it used. Our round-1 tables
 used the tarball, the VLM rounds used the deb pair through the board's packaged llama-server.
+
+## 7. The two rows that do not reconcile: what was checked, and what is left
+
+Two published rows have never reproduced on this board: the LLM decode rows (`tg128`, ~10 % below)
+and the VLM end-to-end rows. This section closes the controllable axes one by one, so that what
+remains is a named variable rather than a suspicion.
+
+### 7.1 LLM `tg128`: every axis we control is identical; the OS image is what is left
+
+The published capture is the vendor's own terminal output for their example command, so it can be
+compared field by field, not just number by number:
+
+| axis | published (2026-05-26) | ours (2026-09-21) | verdict |
+|---|---|---|---|
+| package | llama.cpp `0.1.1` (their release tarball) | the board's `0.1.7~a0+4` (build `5a23f07a4`) **and** their own `0.1.1` release, both run on this board | both measured |
+| command | `llama-bench -m ... -t 8 -p 128 -n 128 -mmp 0 -fa 1 -ub 128` | identical | identical |
+| model | `qwen3 0.6B Q4_0`, 358.78 MiB, 596.05 M | our run prints the same three fields | identical |
+| runtime banner | all nine fields, plus the `tcm_sync_mem` failure and the `init_barrier` heap fallback | **field-identical**, including both failure lines | identical |
+| thread/batch/mmap columns | `8 / 128 / 1 / 0` | identical | identical |
+| statistic | `llama-bench` `pp128`/`tg128` mean +- sd | identical | identical |
+| result `pp128` | 499.75 +- 0.22 | 484.13 (their `0.1.1`) / 490.69 (packaged) | **-3.1 % / -1.8 %** |
+| result `tg128` | 53.35 +- 0.03 | 47.30 (their `0.1.1`) / 47.60 (packaged) | **-11.3 % / -10.8 %** |
+| **OS** | **bianbu-4.0rc3** | **Bianbu 4.0.6, kernel 6.18.3** | **the only remaining variable** |
+
+Version drift is therefore eliminated (their own release package lands at 47.30, not 53.35), runtime
+configuration is eliminated (the banner is the same line), and identity is eliminated (the model row
+is the same row). What is left is the OS/firmware generation, and the one experiment that would
+settle it - re-imaging the board to `4.0rc3` - is a human operation outside an AI contributor's
+authority. Until then the rule of §4 stands and is now evidence-backed: the published **prefill**
+rows are usable acceptance references, the published **decode** rows are an order-of-magnitude
+reference only, and the acceptance line for decode is our own controlled A/B on one board state.
+Evidence: `/root/k3-evidence/llama.cpp/modelzoo-and-freeze-20260920T0140Z/README.md` (both packages)
+and `/root/k3-evidence/onnxruntime/baseline-20260921/llm-packaged.txt` (the packaged run, with the
+binary, library and model digests).
+
+### 7.2 VLM: the row's statistic is undefined, and the candidate readings disagree by 40 %
+
+The VLM table's column header names the configuration (`LLM 8 Core + VisionEncoder N Core/ms`) and
+never says which quantity is in the cell: the vision stage, the time to first token, or a whole
+request. It matters, because the candidates differ by 40 %. Measured in one session on this board
+with the vendor's own model (`fastvlm-mm-0.5b-q4_1`), their documented server command and their own
+request payload (mime string included), at both encoder widths:
+
+| statistic | N = 4 | N = 8 | against the published row |
+|---|---|---|---|
+| **published row** | **256.47** | **164.50** | - |
+| vision encoder alone (our `perf_test` on `fastvlm_vision.f16.onnx`, 512²) | **243.02** | **152.01** | **-5.2 % / -7.6 %** |
+| time to first token, their server, client-side | 317.0 | 229.7 | +23.6 % / +39.6 % |
+| server's own `image prefill (smt) processed in N ms` | 159 | 162 | not the quantity - see below |
+| same request, 24 tokens, end to end | 1013.6 | 937.9 | - |
+
+The 4 -> 8 core step is identical in all three framings - **91.97 ms** in the published row, **91.01
+ms** in our encoder measurement, 87.3 ms in our TTFT - so the scaling is reproduced whatever the
+unit is. The *level* only matches under one reading: **the cell is the vision encoder's own inference
+time**, and the column header then describes the encoder that produced it. Under the other reading
+(time to first token) the published row is 24-40 % better than the same board, model, server and
+flags produce, and no configuration we can find closes that. Two consequences for acceptance: the
+VLM rows are usable as an order-of-magnitude reference against our encoder number (-5 to -8 %), and
+they are **not** usable as an end-to-end service target, because the row does not contain the
+request-level overhead (~60-90 ms above the encoder on this board).
+
+Two instrument notes from the same session, both worth carrying:
+
+* **the server's own `image prefill (smt) processed in N ms` line must not be quoted as the vision
+  stage cost.** It read 159 ms and 162 ms at four and eight encoder threads while the client-visible
+  TTFT moved 87 ms, i.e. the line is insensitive to the knob that defines the table's two columns.
+  Our first attempt at this comparison used it and would have concluded "no difference";
+* **the encoder width is not an environment variable here.** It is
+  `vision_model.spacemit_ep_intra_thread_num` in the model directory's `config.json` (documented for
+  the Qwen3.5 layout in `llama.cpp.md` §2.4.2). The ASR examples in the same documentation do set
+  `SPACEMIT_EP_INTRA_THREAD_NUM` on the command line, so the two paths differ; setting the variable
+  on the VLM path leaves the banner at 4 and makes the two "columns" identical, which is how the
+  mistake was caught. Both runs of the corrected pair are in
+  `/root/k3-evidence/onnxruntime/baseline-20260921/vlm-clocks/` with their server logs and TCM
+  samples.

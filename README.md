@@ -68,6 +68,15 @@ package identity, and the documented entry points we are allowed to use.
   under-prices a graph whose EP claims only part of its nodes by **2.32x**, with
   the named CPU-fallback nodes, the TCM samples and the provider's own trace
   agreeing three ways.
+  `METHOD-ALIGNMENT-20260921.md` §7 closes the two rows that never reconciled. For
+  the LLM decode rows, package version (including the vendor's own 0.1.1 release),
+  command, model identity and the runtime banner are now field-identical to the
+  published capture while the numbers read -1.8 % on prefill and -10.8 % on decode,
+  leaving the OS image generation as the single remaining variable. For the VLM
+  rows, the cell's statistic is undefined and the candidate readings differ by
+  40 %; only the vision encoder's own inference time matches the row (-5.2 to
+  -7.6 %), so the row is an order-of-magnitude reference and not an end-to-end
+  target - acceptance rule R10.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
