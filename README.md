@@ -39,7 +39,11 @@ package identity, and the documented entry points we are allowed to use.
   which reproduce the vendor's published K3 numbers within a couple of percent, and
   `BASELINE2-20260921.md` adds the numeric gate (60 intermediate tensors, bit-identical
   when nothing should change), the cold-start and per-new-frame costs, and the X100
-  interference ladder.
+  interference ladder. `METHOD-ALIGNMENT-20260921.md` collects the vendor's K3
+  model-zoo data (local documentation byte-identical to upstream), compares the
+  vendor's benchmark method with ours aspect by aspect, and fixes the acceptance
+  protocol: judge an optimisation both against the published row and against a
+  method that stands on its own, and never quote one without the other.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
