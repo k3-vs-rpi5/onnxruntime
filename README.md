@@ -44,6 +44,11 @@ package identity, and the documented entry points we are allowed to use.
   vendor's benchmark method with ours aspect by aspect, and fixes the acceptance
   protocol: judge an optimisation both against the published row and against a
   method that stands on its own, and never quote one without the other.
+  `BASELINE3-20260921.md` closes the first int8-encoder attempt with numbers: the
+  dynamic-quantisation route (`xslim --dynq`) is slower than the shipped fp16
+  encoder (518.6 against 150.5 ms), a plain fp32 copy is 10x slower, and the
+  `DENSE_ACCURACY_LEVEL` knob moves the dynq model only within +-7 %, so the
+  static-QDQ-with-calibration path is the one left open.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
