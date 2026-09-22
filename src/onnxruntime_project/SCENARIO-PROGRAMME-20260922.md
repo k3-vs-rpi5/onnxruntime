@@ -421,3 +421,28 @@ normalisation for both sides). **Evidence**: `k3-evidence/onnxruntime/s12-fixtur
 are measured as stages already: det 35.99 ms, rec 2.36 ms, both EP-complete) and fill in the card's
 own-chain column; the Python path must not be used blindly because this board's Python ONNX Runtime
 silently falls back to the CPU EP.
+
+### S12, own-chain measurement: the route is now decided by measurement
+
+Checked on the board, 2026-09-22: `onnxruntime.get_available_providers()` returns
+`['CPUExecutionProvider']` **only**, so the Python path cannot reach the AI cluster at all - a Python
+OCR harness would produce CPU-EP numbers while looking like ours. (There is also no `cv2` in the
+board's Python, so DB post-processing would have to be hand-rolled in numpy on the wrong device.)
+
+Therefore the own-chain measurement is specified as a **C++ harness**, the same shape as
+`ort-two-session-pipeline.cpp`: `dlopen("libspacemit_ep.so")` +
+`OrtSessionOptionsSpaceMITEnvInit`, two sessions in one process, both claimed by the provider
+(the det and rec models are already measured EP-complete, 35.99 ms / 2.36 ms at 8 threads):
+
+1. detector session on the page (640x640, letterboxed), output probability map;
+2. DB post-processing in the harness - threshold, connected components, box unclip - without OpenCV;
+3. crops resized to 48x320, fed to the recogniser session, greedy decode against the model's own
+   character dictionary;
+4. the transcript written per page in the same shape `cer-wer.py` already reads, so the tesseract
+   baseline and our chain are compared by one instrument.
+
+Deliverables that follow: the harness in `tools/`, cross-built by `scripts/build.sh` (bit-identical
+reproducibility is already demonstrated for the existing harness), delivered by `scripts/run.sh`,
+and an S12 card with both engines' per-class CER/WER and pages/minute. The negative control stays the
+printed class (tesseract = 0.0000); the counter-control stays the scanned class (a suspicious 0.0000
+there is investigated, not celebrated).
