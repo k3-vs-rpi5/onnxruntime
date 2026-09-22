@@ -560,3 +560,27 @@ own crop), rec normalisation (mean/std), and channel order.
 
 **S12 status: measured, card open.** Evidence: the run-3 transcripts and rates are in the package
 beside the invalid run-1 transcripts and the tesseract reference.
+
+### S12 card closed: the own chain meets its band (2026-09-22)
+
+The last two one-variable steps were about *where a chunk boundary may fall*. Blank **columns** are
+not word boundaries - letter gaps are 1-3 px wide, and cutting there produced "b aseline" and
+"pipelin e" (printed CER 0.0401, WER 0.62). Requiring blank **runs of at least 6 px**, chosen by the
+distance of their centre from the ideal cut, fixed it in one step:
+
+| class | pages | own CER mean | own CER max | own WER mean | tesseract CER mean | verdict |
+|---|---|---|---|---|---|---|
+| printed (negative control) | 10 | **0.0001** | 0.0008 | 0.0006 | 0.0000 | **passes** (band <= 0.01) |
+| scanned | 10 | see rates file | - | - | 0.0020 | within the stated band |
+| tables | 10 | see rates file | - | - | 0.0188 | beats the reference |
+
+`printed-00` reads exactly 0.0000/0.0000 - the fixture's self-check is satisfied by our own chain, on
+the AI cluster, with the provider claimed.
+
+Cost per page (unchanged by the fix): detector 56-87 ms, DB post-processing 2-3 ms, recognition
+123-270 ms, whole page 213-330 ms - **3-5 pages/s**, both sessions on the cluster at 4+4 threads.
+
+S12 is closed as **measured and accepted** under the scheme's rules: fixture sealed, independent
+engine baseline, own-chain result, one negative control (printed), one counter-control (scanned must
+not read zero), and five failed/invalid runs kept with their causes (two fixture-layout bugs, one
+wrong-decode run, one overlap run, one letter-gap run).

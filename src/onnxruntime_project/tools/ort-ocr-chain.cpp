@@ -265,9 +265,55 @@ int main(int argc, char **argv) {
             int chunks = std::max(1, static_cast<int>(std::ceil((bw / static_cast<float>(bh))
                                                                 / max_aspect)));
             int chunk_w = std::max(1, (bw + chunks - 1) / chunks);
-            for (int k = 0; k < chunks; ++k) {
-                Box part{b.x0 + k * chunk_w, b.y0,
-                         std::min(b.x1, b.x0 + (k + 1) * chunk_w), b.y1};
+            // Cut where the page is blank, not at a fixed pixel count: a word cut in half loses
+            // characters in one chunk and gains fragments in the other (the WER 0.26 signature).
+            // Channel order needs no hypothesis here - every fixture pixel is grey (R=G=B) - so the
+            // only free variable left at the boundary is *where* the cut falls.
+            auto ink_in_column = [&](int x) {
+                int ink = 0;
+                for (int y = b.y0; y < b.y1; ++y) {
+                    const unsigned char *p = &img.rgb[(static_cast<size_t>(y) * img.w + x) * 3];
+                    if (static_cast<int>(p[0]) + p[1] + p[2] < 3 * 128) ++ink;
+                }
+                return ink;
+            };
+            // Collect the blank columns once, then cut only at those: a chunk boundary inside a word
+            // truncates it in one piece and finishes it in the next ("blo" + "ck"), which is worse
+            // than a slightly over-wide chunk. If a stretch has no blank column at all, it stays
+            // whole - the recogniser pads to its 320-wide input anyway.
+            // Blank *runs*, not blank columns: letter gaps are 1-3 px wide and cutting there splits
+            // a word ("b aseline", measured), while word gaps are much wider. Only runs of at least
+            // 6 px count as a word boundary.
+            std::vector<std::pair<int, int>> gaps;
+            int run_start = -1;
+            for (int x = b.x0 + 2; x <= b.x1 - 2; ++x) {
+                if (ink_in_column(x) == 0) { if (run_start < 0) run_start = x; }
+                else if (run_start >= 0) {
+                    if (x - run_start >= 6) gaps.push_back({run_start, x - 1});
+                    run_start = -1;
+                }
+            }
+            if (run_start >= 0 && b.x1 - 2 - run_start >= 6)
+                gaps.push_back({run_start, b.x1 - 3});
+            std::vector<int> cuts{b.x0};
+            int cursor = b.x0;
+            while (cursor + chunk_w < b.x1 - 2) {
+                int target = cursor + chunk_w;
+                int pick = -1, best_dist = 1 << 30;
+                for (auto &g : gaps) {
+                    int centre = (g.first + g.second) / 2;
+                    if (centre <= cursor + chunk_w / 3 || centre >= b.x1 - 2) continue;
+                    int dist = std::abs(centre - target);
+                    if (dist < best_dist) { best_dist = dist; pick = centre; }
+                }
+                if (pick <= 0) break;  // no clean gap left: keep the remainder as one chunk
+                cuts.push_back(pick);
+                cursor = pick;
+            }
+            cuts.push_back(b.x1);
+            std::vector<std::string> parts;
+            for (size_t k = 0; k + 1 < cuts.size(); ++k) {
+                Box part{cuts[k], b.y0, cuts[k + 1], b.y1};
                 auto rin = rec_input(img, part);
                 std::vector<int64_t> rec_shape{1, 3, 48, 320};
                 auto rec_in = Ort::Value::CreateTensor<float>(mem, rin.data(), rin.size(),
@@ -279,7 +325,18 @@ int main(int argc, char **argv) {
                 auto info = rec_out[0].GetTensorTypeAndShapeInfo();
                 auto shape = info.GetShape();
                 int T = static_cast<int>(shape[1]), C = static_cast<int>(shape[2]);
-                text += ctc_decode(rec_out[0].GetTensorData<float>(), T, C, dict);
+                parts.push_back(ctc_decode(rec_out[0].GetTensorData<float>(), T, C, dict));
+            }
+            // Chunk boundaries fall on blank columns, so the space that separated two words lives
+            // outside both crops and must be put back - otherwise "pipeline evidence barrier"
+            // arrives as "pipelineevidencebarrier" (measured).
+            for (size_t k = 0; k < parts.size(); ++k) {
+                std::string piece = parts[k];
+                while (!piece.empty() && piece.front() == ' ') piece.erase(piece.begin());
+                while (!piece.empty() && piece.back() == ' ') piece.pop_back();
+                if (piece.empty()) continue;
+                if (!text.empty() && text.back() != ' ') text += " ";
+                text += piece;
             }
             text += "\n";
         }
