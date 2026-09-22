@@ -799,3 +799,26 @@ So the remaining recipe is mechanical: create a session, upload the sealed 38-fi
 ask the same 20 questions with `kb_ids` and compare against the self-chain's recall, TTFT and
 citation numbers. `zenow` turned out to be an Electron desktop application (570 MB, GUI-only), which
 is why the SDK - not the app - is the reference being driven.
+
+## 14. Parallelism and invocation logic (the operator's third evaluation axis)
+
+Measured on the board with a RAG-shaped prompt (~600 tokens of retrieved context + question,
+64 output tokens) against `llama-server -np 4` on MiniCPM5-2B-Q4_K_M, one variable: the call shape
+(`tools/rag-parallel.py`).
+
+| concurrency | aggregate t/s | per-stream t/s | prefill (per request) | reading |
+|---|---|---|---|---|
+| 1 | **6.13** | 6.14 | 5,350 ms | baseline |
+| 2 | **7.88** (+28.5 %) | 3.94 | 10,417 ms | aggregate rises, per-stream halves |
+| 4 | **9.43** (+53.8 %) | 2.36 | 18,286-20,443 ms | aggregate still rising, prefill now dominates |
+
+The finding is not the t/s curve, it is **where the time goes**: prefill grows almost linearly with
+concurrency (5.35 s -> 10.4 s -> 18-20 s), i.e. on this stack the long-context prefill is
+**serialised across slots**, and only the decode step batches. That matches the earlier
+memory-bound picture - decode batches because several streams share one weight pass, while each
+prefill is its own long compute pass - and it says what the working point for a RAG service should
+be: keep the *retrieved context short* (the prefill is the cost that does not parallelise), or cache
+it, rather than adding slots. The same axis is now specified for the other stages: embedding
+(17.7 ms/chunk single-stream - sweep concurrent requests), OCR (the archive ships a **batch-4
+recogniser**, `PP-OCRv6_tiny_rec_b4_48x320.dynq`, so the batch gain is measurable directly) and
+album embeddings (the 46 ms/image stage under parallel streams).
