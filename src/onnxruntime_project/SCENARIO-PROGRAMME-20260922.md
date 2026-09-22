@@ -717,3 +717,31 @@ Per the scheme's rules the numbers are **not accepted**; the fixture is rebuilt 
 images that differ substantially inside a group, (b) verbatim duplicates as the only positive class,
 and (c) a separate near-duplicate class, and the metrics are re-run once. The embedding harness,
 its 45 ms/image cost and the metric tooling all stand.
+
+### S11 second fixture: still invalid, and the root cause is the *material*, not the fixture
+
+Fixture v2 replaced flat shapes with textured bases (per-group palette, per-pixel noise, 20-40
+strokes) and re-ran the full pipeline on the AI cluster (**44.86 ms/image**, 1,000 images). The
+numbers moved but the conclusion did not:
+
+| metric | fixture v1 | fixture v2 |
+|---|---|---|
+| clustering NMI / purity | 1.000 / 1.000 | **0.885 / 0.851** |
+| planted-pair nearest-neighbour hits | 19/20 | 19/20 |
+| duplicate precision (aHash <= 4) | 0.001 | **0.002** |
+| duplicate precision (embedding cosine >= 0.999) | 0.039 | **0.049** |
+| same-group cosine mean / min | 0.970 / 0.898 | 0.959 / 0.881 |
+| different-group cosine mean / max | 0.901 / 0.966 | 0.909 / **0.981** |
+
+The two cosine bands still **overlap**, and that is the finding: MobileCLIP2-S3 is trained on natural
+images, and every synthetic render - textured or not - lands in a narrow cone of its embedding space
+where "another variant of the same drawing" and "another drawing" are indistinguishable. No fixture
+fixes that, because the metric depends on the encoder's semantics, not on the pictures' pixels.
+
+**S11 is therefore recorded as blocked on material, with the unlock condition stated**: a
+natural-image corpus. The cheapest legitimate source is already on the board - the vendor's own
+sample videos shipped with `yolo-demo` (`/usr/share/yolo-demo/[1-7].mp4`, 1080p H.264) - but
+extracting frames needs a decoder the board does not have (`ffmpeg` is not installed; the vendor app
+decodes through MPP). Two ways forward, both one decision: install a decoder on the board and sample
+frames from those videos, or obtain a small licensed natural-image set. Until then the S11 numbers
+are **not accepted**, and the report says so rather than quoting the flattering NMI.

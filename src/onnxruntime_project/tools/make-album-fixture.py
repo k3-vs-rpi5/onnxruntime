@@ -25,16 +25,25 @@ W = H = 256
 
 def base_image(seed):
     rng = random.Random(seed)
-    img = Image.new("RGB", (W, H), (rng.randint(180, 255), rng.randint(180, 255), rng.randint(180, 255)))
+    # Textured base: a per-group palette plus per-pixel noise, so two variants of the same base still
+    # differ from each other in hashes and embeddings. The first fixture used flat shapes and its
+    # "different" images collided with the planted duplicates (aHash precision 0.005 at Hamming 0).
+    palette = [(rng.randint(0, 255), rng.randint(0, 255), rng.randint(0, 255)) for _ in range(3)]
+    img = Image.new("RGB", (W, H), palette[0])
+    px = img.load()
+    for y in range(H):
+        for x in range(W):
+            base_c = palette[(x * 3 // W + y * 3 // H) % 3]
+            px[x, y] = tuple(max(0, min(255, c + rng.randint(-40, 40))) for c in base_c)
     d = ImageDraw.Draw(img)
-    for _ in range(rng.randint(6, 14)):
-        x0, y0 = rng.randint(0, W - 40), rng.randint(0, H - 40)
-        x1, y1 = x0 + rng.randint(20, 120), y0 + rng.randint(20, 120)
-        colour = (rng.randint(0, 200), rng.randint(0, 200), rng.randint(0, 200))
+    for _ in range(rng.randint(20, 40)):
+        x0, y0 = rng.randint(0, W - 30), rng.randint(0, H - 30)
+        x1, y1 = x0 + rng.randint(10, 70), y0 + rng.randint(10, 70)
+        colour = (rng.randint(0, 255), rng.randint(0, 255), rng.randint(0, 255))
         if rng.random() < 0.5:
-            d.rectangle([x0, y0, x1, y1], fill=colour, outline=(0, 0, 0))
+            d.line([x0, y0, x1, y1], fill=colour, width=rng.randint(1, 4))
         else:
-            d.ellipse([x0, y0, x1, y1], fill=colour, outline=(0, 0, 0))
+            d.ellipse([x0, y0, x1, y1], outline=colour, width=rng.randint(1, 3))
     return img
 
 

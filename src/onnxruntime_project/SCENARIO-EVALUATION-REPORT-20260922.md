@@ -108,9 +108,12 @@ chunk-overlap, one letter-gap cut).
    per-group variants are near-identical (intra-group cosine mean 0.970, min 0.898) and overlap the
    inter-group band (mean 0.901, max 0.966), so the planted duplicates are not separable from the
    non-duplicates (aHash precision 0.005 even at Hamming 0; embedding cosine 0.039 at >=0.999). The
-   perfect NMI 1.000 is therefore treated as uninformative too. The fixture is rebuilt with textured
-   bases, verbatim duplicates as the only positive class, and a separate near-duplicate class before
-   any S11 number is accepted.
+   perfect NMI 1.000 is therefore treated as uninformative too. Fixture v2 (textured bases) was built
+   and re-run at 44.86 ms/image; it moved the numbers without changing the conclusion - the two
+   cosine bands still overlap (intra 0.959/0.881 against inter 0.909/0.981) because MobileCLIP2-S3 is
+   trained on natural images and synthetic renders all land in one narrow cone. **S11 is recorded as
+   blocked on material**: it needs a natural-image corpus (the vendor's own 1080p sample videos are
+   on the board, but the board has no frame decoder installed), and no S11 number is accepted.
 4. **S10 embodied decision** - 100 generated scenes with ground truth, a decision-latency budget, the
    S7/S8 interference matrix re-used, `vla/` models optional.
 5. **S13 audio** - optional; the vendor ASR path against a board-built `whisper.cpp`.
