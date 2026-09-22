@@ -477,3 +477,20 @@ dictionary would silently turn the CER gate into noise.
 Also noted for later scenarios: the archive carries **`PP-OCRv6_tiny_rec_b4_48x320.dynq.onnx`**, a
 batch-4 recogniser - i.e. the throughput shape is available in the same family and will be the S12
 throughput row once the dictionary question is closed.
+
+### S12 blocker closed (same day)
+
+The dictionary was found by reading PaddleOCR's own configuration rather than by guessing file names:
+`configs/rec/PP-OCRv6/PP-OCRv6_tiny_rec.yml` names
+`character_dict_path: ppocr/utils/dict/ppocrv6_tiny_dict.txt`, and that file has **6,904 non-empty
+lines** - with the CTC blank plus the appended space that is exactly the **6,906 classes** the
+model's classifier head carries (6904 + 2 = 6906). Agreement between the config, the dictionary and
+the graph is the evidence; the files fetched earlier (6,623 / 18,383 / 18,708 / 95) are kept in the
+package as the record of four wrong candidates.
+
+Dictionary identity for the record: sha256 `c5cbe34ef40c29c4...`, 27,156 bytes, licence Apache-2.0
+(PaddleOCR upstream), stored in the S12 evidence package under `dicts/ppocrv6_tiny_dict.txt`.
+
+With that, the own-chain harness has everything it needs: input shapes (1x3x640x640 det,
+1x3x48x320 rec), the DB post-processing contract, and the exact character mapping for greedy
+CTC decoding. The harness is the next artefact.
