@@ -108,6 +108,19 @@ SpacemiT EP init: Provider options key/value cannot be empty
 
 ## 附：我们已做但无改观的方向（供参考，避免重复建议）
 
+## 文档级问题（非 provider 缺陷，但影响复现）
+
+1. `solutions/aicomputer_solution/multi_stream_vision.md` 给出的源码下载地址
+   `https://github.com/spacemit-com/multi-stream-vision.git` **无法访问**（2026-09-22 实测：
+   GitHub API 对该仓库返回 `Not Found`，而 `spacemit-com/docs-ai` 返回 200）。我们改走文档推荐的
+   `apt install yolo-demo`（1.0.2）完成 12 路对照，结果与发布表相差 ±2.6 % 以内。
+2. `yolo-demo` 的 `-m <model>` 命令行参数**不会覆盖配置文件里的 `model.id`**：传 `-m yolov8s` 而配置
+   中 `model.id: yolov8n` 时，程序仍加载 `yolov8n`，且只在启动横幅（`current=...`）里体现。我们第一次
+   `yolov8s` 行因此无效并已作废重测。建议在 `--help` 或日志中明确"配置优先"。
+3. `yolo-demo` 未清理 TCM：SIGTERM 后**残留 1 块**（3 次中 2 次），SIGKILL 后**8 块全残留**（占用者
+   线程已不存在），随后任何一次启动都会以 `FileSource[0] Failed to init MPP pipeline` 失败；必须用
+   文档里的 `spacemit-tcm-smi -c` 清理。已在我们的运行脚本里固化为前置检查。
+
 - `onnxslim 0.1.87` 化简该模型：算子数与体积不变，回退 18.7% vs 原始 18.4%（无改观）；
 - `Resize` 属性归一化（去掉 `nearest_mode=floor`、`cubic_coeff_a`）、`scales→sizes` 形态归一化：
   数值**逐位一致**，回退不变；

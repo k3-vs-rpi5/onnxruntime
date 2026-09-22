@@ -48,6 +48,14 @@ The first two landed scripts are the baseline harness:
   harness defects were found and fixed here (see the report): `setsid` may fork and make `$!` the
   wrong pid, and the TCM table's PID column may name a *thread* of the workload rather than the
   process, so the sampler matches any of the workload's thread ids.
+* `board-vendor-app.sh` - runs the vendor's own packaged multi-stream application (`yolo-demo`) on the
+  board (`VENDOR-APP-20260922.md`): refuses to start on a dirty TCM table, clears leaked blocks with
+  the documented `spacemit-tcm-smi -c` and says so, samples the table once a second, and terminates
+  the application in a way that reports what it left behind.
+* `board-scenario-sense-language.sh` - the first scenario of the validation scheme
+  (`SCENARIO-VALIDATION-20260922.md`, `SCENARIO-SENSE-LANGUAGE-20260922.md`): a detector beside the
+  4-slot VLM service, sized so the detector's run ends *inside* the client window, which is what
+  makes its average a contention number rather than a blend.
 
 The board scripts run on the board and the host pushes them and pulls the logs. Results of the
 2026-09-21 rounds are in `../BASELINE*-20260921.md`, `../OPTIMISATION*-20260921.md` and

@@ -119,7 +119,12 @@ a third point, since it is the stage that competes with the decoder in the servi
 extrapolated in the next report. Also produces the first `yolov8s` multi-stream comparison against
 the published 77.74 FPS total.
 
-### G3. Make the multi-stream comparison like-for-like, or state it as a bound forever
+### G3. Make the multi-stream comparison like-for-like, or state it as a bound forever - **done 2026-09-22**
+
+Result: `VENDOR-APP-20260922.md` - the vendor's own application (`yolo-demo` 1.0.2, apt path; their
+source repository 404s) reproduces its published 12-stream totals on this board within ±2.6 %
+(`yolov8n` 130.85 / 136.92 FPS, `yolov8s` 79.15), so the comparison against our bare sessions at the
+same shape (`8x1` = 146.62 / 86.14 inf/s) is now like-for-like.
 
 *Question.* Our +12.8 % is measured against a different thing than the vendor's number: their
 134.29 FPS is a 12-stream application that decodes 1080p H.264 through the VPU, preprocesses on the
@@ -166,7 +171,12 @@ that says which of them is *the* acceptance basis and which are diagnostics.
 *What it changes.* Every future VLM number would carry its official-row delta when one exists and
 its own named statistic when one does not - the same structure the vision tables already use.
 
-### G5. One composed embodied/perception scenario, under the three deployment rules
+### G5. One composed embodied/perception scenario, under the three deployment rules - **first instance done 2026-09-22**
+
+Result: `SCENARIO-VALIDATION-20260922.md` (the scheme) and `SCENARIO-SENSE-LANGUAGE-20260922.md`
+(class C5: a 2-thread detector beside the 4-slot VLM service - the service loses 27.7 % / 31.9 % of
+its served rate and the detector pays +115 % latency, with the round after the detector exits
+returning to the alone band as the control).
 
 *Question.* The project has measured *models* and *two-stage pipelines*, but no composed scenario of
 the kind the VLM/embodied direction implies: e.g. detector + pose/depth + a language stage, sharing

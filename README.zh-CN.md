@@ -222,6 +222,16 @@ AI 工作的 ONNX 侧。两个产物必须放在一起看：承载 SpacemiT 构�
   本轮不新增测量，只把"更好"的定义先固定下来。
   `PLAN.md` 已重写：2026-09-20 的三个问题由测量关闭，计划即 G 清单与状态，并明确写出唯一未完成的结构性交付物
   ——项目自己的 `scripts/build.sh` 与 `scripts/run.sh`（`project.yaml` 仍标记为 `pending-automation`）。
+  同日再完成三项。`VENDOR-APP-20260922.md` 以最强形式闭合多路对照：厂商自家应用（其文档给的源码仓库
+  已 404，改走 apt 包 `yolo-demo` 1.0.2）在本板**复现了官方 12 路发布总量至 ±2.6 % 以内**（`yolov8n`
+  默认配置 130.85 FPS、按其自带建议降 `decode_fps` 后 136.92；`yolov8s` 79.15）——而它自带的配置就是
+  `num_sessions: 8`、`intra_threads: 1`，正是本项目从外部测出的吞吐规则。
+  `SCENARIO-VALIDATION-20260922.md` 固化了**场景化测试与验证方案**（五级阶梯、五个场景类别及其锚点、
+  证据契约、交战规则），`SCENARIO-SENSE-LANGUAGE-20260922.md` 是它的第一个实例：2 线程检测器与 4-slot
+  VLM 服务共存时，服务冷图轮次 -27.7 %、缓存轮次 -31.9 %，检测器延迟 +115 %；检测器退出后的那一轮
+  立刻回到单独运行区间（内部对照）。最后 `scripts/build.sh` 与 `scripts/run.sh` 已交付并实测——交叉
+  编译产物与第 11 轮手工构建**逐位一致**，经公共入口重跑上限测量也复现了已封存数字——`project.yaml`
+  因此改为 `scripts-delivered-exercised`。
   `src/onnxruntime` 未做任何修改。
 
 ## 工作区登记

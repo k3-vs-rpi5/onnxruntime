@@ -360,6 +360,21 @@ package identity, and the documented entry points we are allowed to use.
   the G-list with live statuses, and the one structural deliverable still missing is named there -
   the project's own `scripts/build.sh` and `scripts/run.sh`, which `project.yaml` still declares as
   `pending-automation`.
+  Three more items followed on the same day. `VENDOR-APP-20260922.md` closes the multi-stream
+  comparison in its strongest form: the vendor's own application (their documented source repo
+  404s, so the apt package `yolo-demo` 1.0.2 was used) reproduces its published 12-stream totals on
+  this board **within ±2.6 %** (`yolov8n` 130.85 FPS shipped config, 136.92 with their own
+  decode-throttle note; `yolov8s` 79.15) - and its shipped config is `num_sessions: 8`,
+  `intra_threads: 1`, the throughput rule this project measured from the outside.
+  `SCENARIO-VALIDATION-20260922.md` writes down the **scenario testing and validation scheme** (a
+  five-step ladder, five scenario classes with their anchors, the evidence contract, the rules of
+  engagement), and `SCENARIO-SENSE-LANGUAGE-20260922.md` is its first instance: a 2-thread detector
+  beside the 4-slot VLM service costs the service 27.7 % of its cold-image round and 31.9 % of its
+  cached rounds, and costs the detector +115 % latency, with the round after the detector exits
+  returning to the alone band. Finally `scripts/build.sh` and `scripts/run.sh` exist and were
+  exercised - the cross-build is **bit-identical** to the harness round 11 built by hand, and a
+  fresh ceiling run through the public entry point reproduced the sealed numbers - so `project.yaml`
+  now records `scripts-delivered-exercised`.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

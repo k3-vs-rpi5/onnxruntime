@@ -19,7 +19,7 @@ record.
 | measurement protocol | `METHOD-ALIGNMENT-20260921.md`: the vendor's methods verbatim, our reproduction, R1-R12 and the calibrated bands |
 | tooling | `tools/` - the matrix, census, session, service-shape, pipeline, probe and report instruments, each documented in `tools/README.md` |
 | evidence | `/root/k3-evidence/onnxruntime/{planning-20260920,baseline-20260921,peak-20260922,multisession-20260922}/`, every package with a per-file sha256 registry and a self-check |
-| public entry points | **not built yet** - see S1 below; today's rounds run through `hardware/k3-monitor/experiments/board.sh`, which the workspace contract allows for the steps between delivered runs |
+| public entry points | **delivered and exercised** - `scripts/build.sh` (identity checks + cross-build, bit-identical to the round-11 harness digest) and `scripts/run.sh` (`verify`, `smoke`, `ime-probe`, `instrument <board-script>`); a fresh `ime-probe` run through them reproduced the sealed ceiling, so `project.yaml` now records `scripts-delivered-exercised` |
 
 ## What the rounds established (all with sealed evidence)
 
@@ -53,23 +53,20 @@ Executed from `NEXT-ROUND-ANALYSIS-20260922.md`, in its order:
 | G6 | the LLM decode rows: pursue or demote | proposal: demote to context (D8) |
 | G7 | `/dev/tcm_sync_mem` | kept open: a board-provisioning question with a number attached |
 
-## S1. The structural deliverable still pending: the two public scripts
+## S1. The two public scripts - delivered 2026-09-22
 
-`project.yaml` declares `public_delivery: pending-automation` with `scripts/build.sh` and
-`scripts/run.sh` as the intended entry points, and the workspace contract makes those the only
-public interface of a project. They do not exist yet; every round so far has used the monitor's
-ad-hoc `board.sh`, which is allowed between delivered runs but is not the durable path.
-
-What they should be, following the llama.cpp project's shape:
-
-* `scripts/build.sh` - cross-build this project's own artefacts (the harness binaries and the probe
-  generator's outputs) with the workspace toolchain
-  `spacemit-toolchain-linux-glibc-x86_64-v1.2.4`, sealed with digests;
-* `scripts/run.sh` - deliver those artefacts, the selected models and the instruments to the board,
-  execute the measurement matrix there, and pull the raw output back into a new evidence package;
-* the models and the vendor package stay inputs, identified by digest, never rebuilt;
-* `project.yaml` moves off `pending-automation` once the two scripts exist and one round has run
-  through them, and that state change is reported rather than silent.
+* `scripts/build.sh` verifies the fork commit and the sealed package digest against
+  `sources.lock.yaml`, cross-builds the harness with the workspace toolchain
+  (`riscv64-unknown-linux-gnu-g++` 15.2.0, compiler digest in the manifest) and generates the three
+  matrix probes, sealing `build/SHA256SUMS` + `build/MANIFEST.txt`. The harness it produces is
+  **bit-identical** to the one round 11 built by hand (`b836e876…`), and the probes carry the same
+  digests as the sealed ceiling evidence;
+* `scripts/run.sh` owns the board side: `verify` (offline digest check), `smoke` (deliver the harness,
+  one 8-thread session on `yolov8n`), `ime-probe` (the ceiling instrument, ending in the host-side
+  median table) and `instrument <board-script> [args...]` (deliver and run any instrument from
+  `tools/`, pull its raw output into a new evidence directory);
+* the runs write raw logs only; evidence lands outside the project tree, and the project tree keeps
+  no run output (`build/` is ignored).
 
 ## Decisions outstanding
 
