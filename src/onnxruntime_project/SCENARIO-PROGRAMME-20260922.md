@@ -822,3 +822,21 @@ it, rather than adding slots. The same axis is now specified for the other stage
 (17.7 ms/chunk single-stream - sweep concurrent requests), OCR (the archive ships a **batch-4
 recogniser**, `PP-OCRv6_tiny_rec_b4_48x320.dynq`, so the batch gain is measurable directly) and
 album embeddings (the 46 ms/image stage under parallel streams).
+
+**Embedding under concurrency: no gain, and that closes the axis's second data point.** 64 chunks of
+up to 300 characters were embedded through the same BGE-Small-Zh server with one and four concurrent
+clients: **51.21 chunks/s (19.5 ms/chunk) at concurrency 1 against 55.15 chunks/s (18.1 ms/chunk) at
+4 - only +7.7 %**. So on this stack:
+
+| stage | call-shape lever | measured effect |
+|---|---|---|
+| decode (RAG answers) | more slots | **+53.8 %** aggregate at 4 slots (per-stream halves) |
+| prefill (long context) | more slots | **none** - prefill serialises (5.35 -> 18-20 s) |
+| embedding | more concurrent clients | **+7.7 %** only; the per-chunk cost is model work, not queueing |
+| OCR recognition | batch-4 model (archived) | specified, not yet measured |
+
+The practical reading for a RAG service on this board: parallelise the **decode** side (slots), keep
+the retrieved context **short** because prefill does not parallelise, and treat embedding as a
+throughput pipeline to be fed in one stream (batching several chunks per request would be the real
+lever, and this build's endpoint rejects a batched `input` array - the follow-up is `llama-embedding`
+with multiple prompts or a server built with embedding batching).
