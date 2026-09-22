@@ -895,3 +895,24 @@ Two readings, one of them provisional:
   server-side and cheap: read `prompt_n` / `cache_n` from the response's `timings` for each request
   and compare cached against uncached, and re-run one cell with a prompt whose prefix is provably
   novel. Until that is done the cached column is reported as *provisional*, not as a result.
+
+**Prefix caching verified server-side, and the sweep's cached column re-labelled.**
+
+Three controlled requests against a fresh server (non-streaming, so the timings are the server's own):
+
+| case | wall | `prompt_n` | `prompt_ms` |
+|---|---|---|---|
+| A, `cache_prompt=0` | 2.17 s | **121** | 1,037 ms |
+| A again, `cache_prompt=1` | 1.17 s | **1** | **78 ms** |
+| B (different prefix), `cache_prompt=1` | 2.14 s | 120 | 1,025 ms |
+| A + one extra word, `cache_prompt=1` | 1.19 s | 1 | 76 ms |
+
+So the mechanism is real and exactly as advertised: a repeated prefix is **not re-processed**
+(`prompt_n` 121 -> 1, prefill 1,037 -> 78 ms, ~13x), while a novel prefix pays the full price. That
+also re-labels the sweep above: its cache-on column reading a flat ~90 ms TTFT across four *different*
+retrieved contexts can only mean those requests shared a long prefix (the corpus's own repeated
+headers are the likely cause), so the cell is **verified as a cache hit**, not as an unexplained
+speed-up - and the deployment rule that follows is precise: **cache the prompt prefix only when it
+really repeats** (same system text, same retrieved head), and read `prompt_n` per request to know
+which case a live service is in. The follow-up measurement is to re-run the sweep logging `prompt_n`
+per request, so each cell states whether it was a hit or a miss.
