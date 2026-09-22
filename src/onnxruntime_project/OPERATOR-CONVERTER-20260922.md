@@ -135,3 +135,42 @@ price is measured (6.34 ms on this model) against a stated precision cost.
 
 This is the discipline working as intended: four candidate rules were killed by evidence rather than
 shipped as guesses, and the one that survives will arrive with its provenance attached.
+
+## 6. The mechanism, found by probe: context, not the operator
+
+The named query was a Q/D/Q-wrapped probe. It answered something better than expected, and the answer
+came from a control rather than from the QDQ wrap itself:
+
+| probe (192 -> 768, `half_pixel + linear` Resize) | provider attribution |
+|---|---|
+| Resize alone, `sizes` or `scales` form, fp32 or fp16 | **CPU EP, 100 %** |
+| Resize alone at `pp_liteseg`'s own channel counts and sizes (C=128 1->16, C=19 64->128) | **CPU EP, 100 %** |
+| Resize **after a Conv** | **claimed** - the whole graph is one provider subgraph, zero CPU nodes |
+| Resize after a Conv, wrapped in QDQ | **claimed** as well |
+
+So the discriminator is neither dtype, nor attributes, nor the input form, nor the QDQ wrap: it is
+**whether the Resize sits in a fragment the provider is already claiming**. A standalone resize is
+declined and lands on the CPU; the same operator next to a convolution is claimed and executed. That
+explains every observation in this project at once - `pp_liteseg`'s seven linear resizes are claimed
+because they live inside its large QDQ/conv regions, and the depth model's are refused because the
+head is cut into fragments by an unsupported node.
+
+### 6.1 The rule that follows, and its net effect
+
+If the fragmentation is the cause, removing the unsupported node is the rule: `Exp` is absent from the
+supported list while `Pow` is on it, and the depth head's chain is `Mul(Pow(Exp(clip(x)), a), c)`.
+`Exp -> Pow(E, x)` was applied and verified:
+
+| check | result |
+|---|---|
+| numeric gate | **0.03 fp16 ulp** - effectively exact |
+| re-census | CPU node executions **15 -> 8**, CPU share **18.4 % -> 8.0 %**, CPU time **12.46 -> 6.14 ms**; the `Pow`/`Exp`/`Mul` chain left the CPU list entirely |
+| unprofiled timing | **64.52 / 64.59 ms before against 74.93 / 74.83 ms after - 16 % slower** |
+
+**Rule rejected on net effect.** The mechanism is confirmed exactly as predicted - the fragment merged
+and seven CPU node executions disappeared - and the model still got slower, because the reconnected
+provider region costs about 16 ms more than the mixed region it replaced. "Fewer CPU nodes" is not the
+same claim as "faster", and this is the measurement that proves it. It also reframes the remaining
+work: the question is no longer which operators to convert, but **why the provider's execution of that
+head region is 16 ms slower than the CPU's for the same work** - a question for the vendor, with a
+16 ms price tag and a reproducible probe (one Conv + one Resize) behind it.

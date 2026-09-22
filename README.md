@@ -204,6 +204,17 @@ package identity, and the documented entry points we are allowed to use.
   primitives passes in isolation - a robustness finding in its own right. Four candidate
   rules were killed by evidence rather than shipped as guesses; the surviving line of
   query (a Q/D/Q-wrapped probe) is named, along with its 6.34 ms prize.
+  The probe answered something better (section 6): the discriminator is **context**, not
+  the operator - a `half_pixel + linear` Resize alone is 100 % CPU-EP, while the same
+  node **after a Conv** is claimed with zero CPU nodes. That explains `pp_liteseg`
+  (seven resizes inside large claimed regions) and the depth model (a head cut into
+  fragments by an unsupported `Exp`). Removing that `Exp` (`Exp -> Pow(E, x)`, numeric
+  gate 0.03 fp16 ulp) did exactly what the mechanism predicted - CPU node executions
+  15 -> 8, CPU share 18.4 % -> 8.0 % - and made the frame **16 % slower**
+  (64.52/64.59 ms against 74.93/74.83 ms), so the rule is rejected on net effect:
+  "fewer CPU nodes" is not the same claim as "faster". The next query is named and
+  priced: why the provider's execution of the reconnected region costs ~16 ms more than
+  the CPU fragment it replaced, with a one-Conv-plus-one-Resize probe behind it.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

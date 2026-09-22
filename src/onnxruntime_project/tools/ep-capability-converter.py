@@ -374,8 +374,45 @@ def rule_resize_fp16_through_fp32(model, tag="capconv", only=None):
     return rewritten
 
 
+def rule_exp_to_pow(model, tag="capconv", only=None):
+    """Replace `Exp` with `Pow(e, x)`, to reconnect a fragmented claimed region.
+
+    Evidence: `Exp` is **absent** from the provider's supported-operator list while `Pow` is on it
+    with no stated constraints; and a probe built to isolate the resize question showed that a
+    `half_pixel + linear` Resize is claimed **when it sits next to a claimed operator** and refused
+    when it stands alone - i.e. what the provider refuses is not always the operator itself but the
+    small fragment it ends up in. In the depth model, `Exp` is the unsupported node that cuts the head
+    into fragments, so removing it is the rule that the mechanism points at.
+
+    Numerically this is an identity (up to rounding), and it is a *declared* substitution rather than
+    an equivalence - the numeric gate records the difference and the rule is not accepted without it.
+    """
+    initializers = _initializer_map(model)
+    types = graph_index(model)[2]
+    rewritten = []
+    for node in list(model.graph.node):
+        if node.op_type != "Exp":
+            continue
+        if only and only not in (node.name or ""):
+            continue
+        in_type = types.get(node.input[0], ("?",))[0]
+        np_dtype = np.float16 if in_type == "FLOAT16" else np.float32
+        base = f"{tag}_{(node.name or node.output[0]).strip('/').replace('/', '_')}"
+        exponent = numpy_helper.from_array(
+            np.array(np.e, dtype=np_dtype).reshape([1] * 0 + [1]), f"{base}_e")
+        model.graph.initializer.append(exponent)
+        index = list(model.graph.node).index(node)
+        model.graph.node.insert(index, helper.make_node(
+            "Pow", [f"{base}_e", node.input[0]], [node.output[0]], name=f"{base}/pow"))
+        del model.graph.node[index + 1]
+        rewritten.append(f"{node.name or ''}: Exp -> Pow(E, x) (Exp is not on the supported list, "
+                         f"Pow is)")
+    return rewritten
+
+
 RULES = {"resize": rule_resize_linear, "resize-attrs": rule_resize_nearest_mode,
-         "resize-canonical": rule_resize_canonicalise, "resize-fp32": rule_resize_fp16_through_fp32}
+         "resize-canonical": rule_resize_canonicalise, "resize-fp32": rule_resize_fp16_through_fp32,
+         "exp-to-pow": rule_exp_to_pow}
 
 
 def convert(model_path, out_path, rules, only=None):
