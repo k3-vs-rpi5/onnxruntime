@@ -643,3 +643,19 @@ reference is a full knowledge-base stack, not a CLI. Wiring the sealed corpus th
 knowledge-base API is the remaining work; it needs the API surface (port, endpoints, auth) from the
 vendor documentation, and it will run against the same 38-file corpus and the same 50 questions the
 self-chain was measured with, so the two are comparable statistic-for-statistic.
+
+**S9 stage 3: the reference API is mapped (driving it is the next step).** The board's
+`llm-sdk.service` listens on **`http://localhost:8050`** (`llm-sdk-server`, confirmed by `ss`), with
+the vendor documentation describing the surface we need: `POST /api/knowledge-bases` to create a
+knowledge base, `POST /api/knowledge-bases/{kb_id}/files` to upload, `POST
+.../files/{file_id}/vectorize` (and a batch variant) to index, `GET .../vectorization/queue` and the
+per-file progress endpoints to wait on, then `POST /api/chat` with **`kb_ids`** to switch it into its
+RAG chain. The service also runs its own MinIO (9000/9001) and manages its own models through
+`/api/models/*`, so driving it means: load an LLM and an embedding model through the SDK, create a
+knowledge base, upload the sealed 38-file corpus, vectorise, then ask the same 20 questions that the
+self-chain answered.
+
+Status: **the reference is installed, running and API-mapped; the corpus has not been loaded into it
+yet.** S9's own-chain numbers (recall 1.000 / 0.980, TTFT 2.2 s, citations 16/20) stand as the
+measured result, and the reference column stays empty rather than being filled with a different
+configuration.
