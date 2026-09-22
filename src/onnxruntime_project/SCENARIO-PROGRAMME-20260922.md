@@ -494,3 +494,34 @@ Dictionary identity for the record: sha256 `c5cbe34ef40c29c4...`, 27,156 bytes, 
 With that, the own-chain harness has everything it needs: input shapes (1x3x640x640 det,
 1x3x48x320 rec), the DB post-processing contract, and the exact character mapping for greedy
 CTC decoding. The harness is the next artefact.
+
+### S12 own chain, first run: it executes, and its decode is wrong (kept, not published)
+
+`tools/ort-ocr-chain.cpp` exists, is cross-built by `scripts/build.sh` (digest `f20a92b2...`) and
+runs on the board over all 30 pages, producing 30 transcripts. Two things are already learned and
+one is wrong:
+
+* **the provider refuses two eight-thread sessions outright** - `Not enough available AI cores for
+  the thread pool: required 8, available 0`. The harness now takes a per-session budget
+  (`--threads 4 4` works), which is the pipeline-sharing rule from the scenario registry appearing
+  again, this time in our own code;
+* **the stage timings look sane** (e.g. a table page: det 56-58 ms, DB post-processing ~2 ms,
+  recognition of 68 cell boxes ~250 ms, total ~310 ms per page), so the chain is genuinely running
+  on the AI cluster with the provider claimed;
+* **the decoded text is wrong**: `printed-00` reads `bloc boe beshie peie eidere bamrepr` where the
+  ground truth is `block block baseline pipeline evidence barrier ...`. Close enough to be a
+  geometry or mapping error, far enough that no CER number may be published from this run.
+
+Leading hypotheses, in the order they will be tested (each a one-variable change):
+
+1. **box geometry**: the letterbox back-mapping or the unclip offset puts the crop off the line, so
+   the recogniser reads parts of two lines. Test: dump the boxes and crops for one page and look at
+   them rather than at the text;
+2. **dictionary mapping**: class 1 -> `dict[0]` versus a leading blank/space entry in the tiny
+   model's own dict file (the 6906 classes = 6904 + blank + space is arithmetic, not a published
+   statement). Test: shift the mapping by one and compare a single clean line;
+3. **channel order**: the harness feeds RGB while the model may expect BGR.
+
+The transcripts of this run are kept in the evidence package as **invalid** (they are a record of a
+wrong decode, not a result). The S12 card's own-chain column stays empty until one of the three is
+the cause and the printed class reads ~0, exactly as the fixture's self-check demands.
