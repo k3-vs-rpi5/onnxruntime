@@ -870,3 +870,28 @@ finishes (the tool currently prints at the end), keep a watchdog on the server's
 questions and abort the cell with the reason, and cut the cell size (8 questions x 6 cells with k=4
 contexts is ~16 minutes of prefill on this board - the sweep should run 4 questions per cell and
 report incrementally).
+
+**RAG optimisation sweep, second attempt: complete, with one number that needs verification.**
+Four questions per cell, incremental output and a health watchdog (both added after the first
+attempt died silently). medians in ms:
+
+| retrieved chunks | cache_prompt off: TTFT / total | cache_prompt on: TTFT / total |
+|---|---|---|
+| 1 | 914 / 5,550 | **86 / 4,732** |
+| 2 | 1,596 / 6,284 | **89 / 4,780** |
+| 4 | 2,592 / 7,338 | **92 / 4,847** |
+
+Two readings, one of them provisional:
+
+* **context size is a real cost**, as the parallel-axis result implied: TTFT grows roughly linearly
+  with the number of retrieved chunks (914 -> 1,596 -> 2,592 ms) and so does the total (5.55 -> 6.28 ->
+  7.34 s). Keeping k small is a genuine optimisation on this board;
+* **prefix caching looks like the dominant lever** - TTFT collapses to ~86-92 ms and stays flat as
+  context grows (a 10-28x reduction), with the total improving 15-35 % as well. **This is marked
+  provisional**: the four questions of a cell have *different* retrieved contexts, so a true cache hit
+  should not be possible for the whole prompt, and the flatness suggests either a genuinely shared
+  prefix (the template and the corpus's own repeated headers) or that the client's TTFT is being
+  measured on an early stream event rather than on the first generated token. The verification is
+  server-side and cheap: read `prompt_n` / `cache_n` from the response's `timings` for each request
+  and compare cached against uncached, and re-run one cell with a prompt whose prefix is provably
+  novel. Until that is done the cached column is reported as *provisional*, not as a result.

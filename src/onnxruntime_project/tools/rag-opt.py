@@ -64,16 +64,29 @@ def main(argv):
     rows = [json.loads(l) for l in pathlib.Path(argv[1]).read_text().splitlines()]
     eport, lport = int(argv[2]), int(argv[3])
     n = int(argv[4]) if len(argv) > 4 else 8
+    n = min(n, 4)  # a 16-minute silent window is what killed the first attempt
     rng = random.Random(5)
     pool = [(i, s.strip()) for i, r in enumerate(rows)
             for s in re.split(r"(?<=[.!?;])\s+", r["text"]) if 60 <= len(s) <= 200]
     rng.shuffle(pool)
     sample = pool[:n]
-    print("k  cache  ttft_median_ms  total_median_ms")
+    def healthy(port):
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=5).read()
+            return True
+        except Exception:
+            return False
+
+    print("k  cache  ttft_median_ms  total_median_ms", flush=True)
     for k in (1, 2, 4):
         for cache in (0, 1):
             ttfts, totals = [], []
-            for idx, q in sample:
+            aborted = False
+            for j, (idx, q) in enumerate(sample):
+                if not healthy(lport):
+                    print(f"{k}  {cache}      ABORTED: server unhealthy at question {j+1}", flush=True)
+                    aborted = True
+                    break
                 qv = embed_one(eport, q)
                 ranked = sorted(range(len(rows)), key=lambda i: -cosine(qv, rows[i]["vector"]))[:k]
                 src = "\n".join(f"[{i+1}] {rows[r]['text'][:280]}" for i, r in enumerate(ranked))
@@ -81,8 +94,12 @@ def main(argv):
                 if ttft:
                     ttfts.append(ttft)
                 totals.append(total)
+                print(f"   cell k={k} cache={cache} q{j+1}: ttft={0 if ttft is None else round(ttft*1000)} ms "
+                      f"total={round(total*1000)} ms", flush=True)
+            if aborted or not ttfts:
+                continue
             print(f"{k}  {cache}      {statistics.median(ttfts)*1000:.0f}          "
-                  f"{statistics.median(totals)*1000:.0f}")
+                  f"{statistics.median(totals)*1000:.0f}", flush=True)
 
 
 if __name__ == "__main__":
