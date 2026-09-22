@@ -785,3 +785,17 @@ exactly that trio - LLM + Embed + Rerank - so the reference path is: install `ze
 model to this SDK) before the corpus can be vectorised through the vendor stack. That is recorded as
 the remaining dependency for S9.3 rather than being papered over with a different configuration; the
 self-chain numbers stay the measured result.
+
+**S9.3: the reference path is open, with its exact call shape now known.** Three probes mapped it:
+`/api/models/download` + `/api/models/start` bring up an LLM (Qwen3-0.6B downloaded, 365 MB);
+`GET /api/knowledge-bases/1/files` shows the vendor's own knowledge base is genuinely vectorised
+(files carry `chunk_count` and `vectorized_chunks`), so the embedding side exists inside the product
+even though it is absent from the model catalogue; and `/api/chat` demands a specific envelope -
+`message` as an **object**, `session_id` as an **integer**, `kb_ids` as an array of **strings** -
+answering `Session not found` until a session exists.
+
+So the remaining recipe is mechanical: create a session, upload the sealed 38-file corpus through
+`POST /api/knowledge-bases/{id}/files`, vectorise (single and batch endpoints both documented), then
+ask the same 20 questions with `kb_ids` and compare against the self-chain's recall, TTFT and
+citation numbers. `zenow` turned out to be an Electron desktop application (570 MB, GUI-only), which
+is why the SDK - not the app - is the reference being driven.
