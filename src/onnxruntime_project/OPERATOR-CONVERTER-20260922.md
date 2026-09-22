@@ -107,6 +107,31 @@ A probe is only ever used to **confirm** a rule derived from the above, never to
 rule records: its evidence, the graph it was applied to, the numeric-gate result, the re-census
 result, and its status (`accepted` / `rejected` / `needs more query`).
 
+### 5.0 Rules of engagement for a complex transformation (sharpened 2026-09-22)
+
+Operator conversion is not a one-shot edit; it is a chain of artefacts, and this project's first
+attempts at it produced two mistakes of its own before producing any finding. The discipline that
+came out of them:
+
+1. **opset discipline.** A rewrite must emit the form the *emitted* operator requires for the model's
+   declared opset, and the two do not move together: `ReduceSum` takes `axes` as an input from opset
+   13, while `ReduceL2` kept it as an attribute until opset 18. Feeding `axes` as an input into an
+   opset-17 model produced a graph that the provider crashed on; using the ReduceL2 threshold for the
+   ReduceSum being emitted produced a graph the checker rejected outright. Both were caught by the
+   checker and the numeric gate **before** any board run, which is where they belong;
+2. **three claims, never one.** "The rewrite is semantically equivalent", "the provider claims it" and
+   "it is faster" are separate facts with separate instruments (numeric gate, coverage census,
+   unprofiled timing). A rule is a *result* only when all three are recorded, and a rule that is
+   equivalent and claimed but slower is a **rejected rule with a named mechanism**, not a finding
+   about the provider;
+3. **reduce before blaming.** When the provider crashes, the next step is to reduce the trigger to
+   primitives and to the smallest graph that still fails - and to check the artefact first. A crash
+   that survives every probe is recorded as **blocked-unexplained** with its reproduction attached,
+   never as "the provider is broken";
+4. **anomalies are observations.** A 3.5x slowdown in the direction of the intended optimisation is
+   explained by instrumenting the mechanism (thread-summed per-operator time), not by restating the
+   goal.
+
 ### 5.1 Evidence registry: what the capability check actually accepts
 
 | operator / form | documented | measured | status |
@@ -174,3 +199,55 @@ same claim as "faster", and this is the measurement that proves it. It also refr
 work: the question is no longer which operators to convert, but **why the provider's execution of that
 head region is 16 ms slower than the CPU's for the same work** - a question for the vendor, with a
 16 ms price tag and a reproducible probe (one Conv + one Resize) behind it.
+
+## 7. Two rules against the models that motivated the tool, analysed rather than declared
+
+The rationale for the converter was always the models with the largest fallbacks. Two of them have now
+been rewritten, verified and measured, and neither is a one-line result - which is the point.
+
+### 7.1 `yoloe-v8s-seg.dynq`: the rewrite worked, and the provider is 6.9x slower than the CPU
+
+The census names the fallback precisely: three `Einsum` nodes at 44.12 / 12.06 / 2.70 ms, i.e.
+**58.88 ms of a 157.55 ms frame (37.4 %)**, and `Einsum` is **not** on the supported-operator list.
+Their equation is `bchw,bkc->bkhw` - a per-pixel contraction over channels - which lowers exactly to
+`Reshape` + `MatMul` + `Reshape` (`out[b,k,p] = sum_c x1[b,c,p] * x2[b,k,c]`, so the weight side
+multiplies on the left; the first version of this rule added a `Transpose` and the model would not
+load, which the gate caught before any timing).
+
+| check | result |
+|---|---|
+| numeric gate | **1.79e-07** on both outputs (float32 rounding) |
+| re-census | CPU node executions **12 -> 7**, CPU share **37.9 % -> 0.1 %** (0.77 ms) - the three `Einsum` nodes left the CPU exactly as intended |
+| unprofiled timing | **157.55 ms -> 544.35 ms** (3.5x slower) |
+| mechanism (provider trace) | the three new `MatMul` nodes cost **~405 ms/frame** on the provider against **58.9 ms/frame** for the equivalent `Einsum` nodes on the CPU EP - **6.9x**, over 0.7 GFLOP of arithmetic, i.e. **1.7 GOPS effective** |
+
+The rule is correct, it did what it was designed to do, and it is rejected on net effect - with the
+interesting part named: **for this arithmetic the provider's path is far slower than the CPU EP's**,
+which is the opposite of the assumption the conversion idea rests on, and it is a specific question
+for the vendor (a `MatMul` probe at these shapes: `[1,80,512] x [1,512,6400]` and its siblings).
+
+### 7.2 `superpoint_512x512_top512_batch1.q`: one unsupported operator, and a crash not yet explained
+
+The census names one operator: `ReduceL2` at 0.434 ms inside a 2.30 ms fallback (13.8 % of a 15.99 ms
+frame). `ReduceL2` is **not** on the supported list, and it lowers to `Sqrt(ReduceSum(x*x))` - three
+supported operators, bit-identical on the CPU EP (`max|diff| = 0`) once the opset form was right.
+
+What happened next is recorded as a sequence, because the sequence is the evidence:
+
+| step | observation |
+|---|---|
+| opset-naive rule | provider **segfault** - and the cause was *ours*: `axes` fed as an input into an opset-17 model |
+| opset-correct rule | numeric gate **0**, ONNX checker passes, CPU EP runs it - and the provider **still segfaults** |
+| primitives | `Mul`, `ReduceSum` with axes as an input, `Sqrt` and their composition all pass on the provider |
+| same shape, fp32 | passes (`[1,256,64,64]`, 4.07 ms) |
+| same shape, wrapped in QDQ | passes (14.95 ms) |
+| axis | reducing over axis 3 instead of axis 1 **also crashes** - the axis is not the trigger |
+| when | `-v` shows *session initialisation succeeding*; the crash is in the **first inference** |
+| subgraph dump | nothing is written before the crash |
+
+So the rule is correct, the provider accepts a graph it cannot execute, and every reduction a black box
+can perform - primitives, shape, dtype context, axis - passes beside it. The rule is therefore
+**blocked-unexplained**, not rejected: the trigger is in the interaction between the rewritten node
+and this graph, and naming it needs either the provider's internals or a longer reduction than this
+pass could afford. The reproduction travels to the vendor with the probes that pass beside it, which
+is what makes it actionable rather than a complaint.

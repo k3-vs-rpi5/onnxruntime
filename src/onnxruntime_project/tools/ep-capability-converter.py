@@ -54,6 +54,20 @@ def graph_index(model):
     return producers, consumers, types
 
 
+def default_opset(model):
+    """The model's default-domain opset, which decides the *form* of several operators.
+
+    This is not a detail: `ReduceSum` takes `axes` as an attribute before opset 18 and as an input
+    from 18 on, so a rewrite that emits the wrong form produces a graph inconsistent with its own
+    declared opset. That mistake was made here - the first `ReduceL2` rule fed `axes` as an input into
+    an opset-17 model, the provider crashed on it, and only then did the analysis find the cause.
+    """
+    for entry in model.opset_import:
+        if entry.domain in ("", "ai.onnx"):
+            return entry.version
+    return 17
+
+
 def describe(node, types):
     attrs = ", ".join(
         f"{a.name}={helper.get_attribute_value(a)!r}" for a in node.attribute
@@ -410,13 +424,155 @@ def rule_exp_to_pow(model, tag="capconv", only=None):
     return rewritten
 
 
+def rule_reduce_l2(model, tag="capconv", only=None):
+    """`ReduceL2` -> `Sqrt(ReduceSum(x * x))`.
+
+    Evidence: `ReduceL2` is **not** on the provider's supported-operator list while `Sqrt`, `ReduceSum`
+    and `Mul` are; and it is exactly the node that the census catches on the CPU side in two models
+    (`superpoint` 0.434 ms, `yoloe` two more). The lowering is the operator's own definition, so the
+    numeric gate should show agreement to rounding.
+    """
+    opset = default_opset(model)
+    rewritten = []
+    for node in list(model.graph.node):
+        if node.op_type != "ReduceL2":
+            continue
+        if only and only not in (node.name or ""):
+            continue
+        attrs = {a.name: helper.get_attribute_value(a) for a in node.attribute}
+        keepdims = int(attrs.get("keepdims", 1))
+        axes = list(attrs.get("axes", []))
+        if not axes and len(node.input) > 1 and node.input[1]:
+            axes_initializer = _initializer_map(model).get(node.input[1])
+            axes = list(axes_initializer) if axes_initializer is not None else []
+        base = f"{tag}_{(node.name or node.output[0]).strip('/').replace('/', '_')}"
+        index = list(model.graph.node).index(node)
+        new_nodes = [helper.make_node("Mul", [node.input[0], node.input[0]], [f"{base}_sq"],
+                                      name=f"{base}/square")]
+        sum_inputs = [f"{base}_sq"]
+        # The form is decided by the operator being *emitted*, not by the one being replaced, and the
+        # two changed at different opsets: `ReduceSum` takes `axes` as an input from **opset 13**
+        # onward, while `ReduceL2` kept it as an attribute until **opset 18**. Using the wrong one
+        # produces a graph the checker rejects or the provider crashes on - both of which happened here
+        # before the rule was right.
+        sum_attributes = {"keepdims": keepdims, "name": f"{base}/reduce_sum"}
+        if axes and opset >= 13:
+            axes_name = f"{base}_axes"
+            model.graph.initializer.append(
+                numpy_helper.from_array(np.array(axes, dtype=np.int64), axes_name))
+            sum_inputs.append(axes_name)
+        elif axes:
+            # Opset < 13: `axes` is an attribute of ReduceSum.
+            sum_attributes["axes"] = axes
+        new_nodes.append(helper.make_node("ReduceSum", sum_inputs, [f"{base}_sum"], **sum_attributes))
+        new_nodes.append(helper.make_node("Sqrt", [f"{base}_sum"], [node.output[0]],
+                                          name=f"{base}/sqrt"))
+        del model.graph.node[index]
+        for offset, new_node in enumerate(new_nodes):
+            model.graph.node.insert(index + offset, new_node)
+        rewritten.append(f"{node.name or ''}: ReduceL2 -> Sqrt(ReduceSum(x*x)) "
+                         f"(axes={axes} as {'input' if opset >= 13 else 'attribute'}, "
+                         f"keepdims={keepdims}, model opset {opset})")
+    return rewritten
+
+
+def rule_einsum_pixel_matmul(model, tag="capconv", only=None):
+    """`Einsum('bchw,bkc->bkhw')` -> Reshape + Transpose + MatMul + Reshape.
+
+    Evidence: `Einsum` is **not** on the supported list, and it is the dominant fallback in
+    `yoloe-v8s-seg` (three of them, 58.88 ms of a 157.55 ms frame). The equation is a per-pixel
+    contraction over channels with a per-batch weight matrix, which is exactly a batched `MatMul`
+    once the spatial axes are folded: `[b,c,h,w] -> [b,c,hw]`, weights `[b,k,c] -> [b,c,k]`,
+    `MatMul -> [b,k,hw]`, `-> [b,k,h,w]`. All four operators are on the supported list and the shape
+    arithmetic is exact, so this is an equivalence rather than an approximation.
+    """
+    producers, _, types = graph_index(model)
+    # Element-wise and broadcast operators preserve the shape the lowering needs, and `Expand` in this
+    # export expands a normalised feature tensor to the shape of its sibling rather than inventing a
+    # new one. Walking back through them recovers `[b, k, c]` for an operand whose own shape inference
+    # came back empty; the numeric gate is what decides whether the walk was right.
+    shape_preserving = {"Div", "Mul", "Add", "Sub", "Sqrt", "Clip", "Pow", "Exp", "Sigmoid", "Relu",
+                        "Cast", "Expand", "ReduceL2", "ReduceSum", "ReduceMean", "InstanceNormalization"}
+
+    def resolve_rank3(name, depth=0):
+        declared = types.get(name)
+        if declared and len(declared[1]) == 3 and all(isinstance(d, int) for d in declared[1]):
+            return declared[1]
+        if depth > 8:
+            return None
+        producer = producers.get(name)
+        if producer is None or producer.op_type not in shape_preserving:
+            return None
+        for candidate in producer.input:
+            found = resolve_rank3(candidate, depth + 1)
+            if found:
+                return found
+        return None
+
+    rewritten = []
+    for node in list(model.graph.node):
+        if node.op_type != "Einsum":
+            continue
+        if only and only not in (node.name or ""):
+            continue
+        equation = None
+        for attribute in node.attribute:
+            if attribute.name == "equation":
+                equation = attribute.s.decode()
+        if equation != "bchw,bkc->bkhw":
+            continue
+        x1, x2 = node.input[0], node.input[1]
+        dims1 = types.get(x1, ("?", []))[1]
+        if len(dims1) != 4 or not all(isinstance(d, int) for d in dims1):
+            continue
+        b, c, h, w = dims1
+        dims2 = resolve_rank3(x2)
+        if dims2 is None:
+            continue
+        b2, k, c2 = dims2
+        if b2 != b or c2 != c:
+            continue
+        base = f"{tag}_{(node.name or node.output[0]).strip('/').replace('/', '_')}"
+        shapes = [
+            (f"{base}_shape1", np.array([b, c, h * w], dtype=np.int64)),
+            (f"{base}_shape2", np.array([b, k, h, w], dtype=np.int64)),
+        ]
+        for name, array in shapes:
+            model.graph.initializer.append(numpy_helper.from_array(array, name))
+        index = list(model.graph.node).index(node)
+        new_nodes = [
+            helper.make_node("Reshape", [x1, f"{base}_shape1"], [f"{base}_m1"], name=f"{base}/r1"),
+            # `out[b,k,p] = sum_c x1[b,c,p] * x2[b,k,c]`, so the weight side multiplies on the left:
+            # MatMul([b,k,c], [b,c,p]) -> [b,k,p]. No transpose is needed - the first version of this
+            # rule added one and the result failed to load, which the gate caught before any timing.
+            helper.make_node("MatMul", [x2, f"{base}_m1"], [f"{base}_mm"],
+                             name=f"{base}/matmul"),
+            helper.make_node("Reshape", [f"{base}_mm", f"{base}_shape2"], [node.output[0]],
+                             name=f"{base}/r2"),
+        ]
+        del model.graph.node[index]
+        for offset, new_node in enumerate(new_nodes):
+            model.graph.node.insert(index + offset, new_node)
+        rewritten.append(f"{node.name or ''}: Einsum bchw,bkc->bkhw with c={c}, k={k}, h={h}, w={w} "
+                         f"-> Reshape/MatMul/Reshape")
+    return rewritten
+
+
 RULES = {"resize": rule_resize_linear, "resize-attrs": rule_resize_nearest_mode,
          "resize-canonical": rule_resize_canonicalise, "resize-fp32": rule_resize_fp16_through_fp32,
-         "exp-to-pow": rule_exp_to_pow}
+         "exp-to-pow": rule_exp_to_pow, "reduce-l2": rule_reduce_l2,
+         "einsum-pixel": rule_einsum_pixel_matmul}
 
 
 def convert(model_path, out_path, rules, only=None):
     model = onnx.load(model_path)  # external data must resolve for a real conversion
+    # Rules that reason about intermediate shapes need them declared; exporters frequently omit them,
+    # so inference runs first. Failure is not fatal - a rule that needs a shape simply skips a node it
+    # cannot prove, which is the conservative direction.
+    try:
+        model = onnx.shape_inference.infer_shapes(model, strict_mode=False)
+    except Exception as error:  # noqa: BLE001 - report and continue with what is declared
+        print(f"note: shape inference did not complete ({error}); rules will use declared shapes only")
     report = []
     for rule in rules:
         if rule not in RULES:

@@ -245,6 +245,21 @@ package identity, and the documented entry points we are allowed to use.
   OCR pipeline: detector 35.989 ms, recogniser 2.340 ms, and run together 38.420 / 6.095 ms
   - a frame costs 38.33 ms serialised against 38.42 ms overlapped, so the two stages should
   be **serialised on the same eight cores**, not given one each.
+  Sections 5.0 and 7 of the converter document then sharpen the method and apply it to the
+  two models with the largest fallbacks. **Rules of engagement**, earned from two of this
+  project's own mistakes: the *emitted* operator's opset governs its form (`ReduceSum`
+  takes `axes` as an input from opset 13; `ReduceL2` kept the attribute until 18);
+  equivalence, claim-status and speed are three separate claims with three instruments;
+  reduce before blaming; and an anomaly is an observation, not a conclusion.
+  `yoloe`'s three `Einsum` nodes (58.88 ms, 37.4 % of the frame) lower exactly to
+  `Reshape/MatMul/Reshape` (1.79e-07) and the fallback does disappear (12 -> 7 CPU node
+  executions, 37.9 % -> 0.1 %) - and the frame goes **157.55 -> 544.35 ms**, because the
+  provider's `MatMul` path costs ~405 ms/frame against the CPU EP's 58.9 ms for the same
+  arithmetic: **6.9x slower, 1.7 GOPS effective**. `superpoint`'s single `ReduceL2`
+  (0.434 ms) lowers to a bit-identical `Sqrt(ReduceSum(x*x))` and the provider **segfaults
+  in the first inference** after a successful session init, with primitives, shape, dtype
+  context and axis all excluded by probes - recorded as **blocked-unexplained**, with the
+  reproduction and the passing probes attached for the vendor.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
