@@ -745,3 +745,29 @@ extracting frames needs a decoder the board does not have (`ffmpeg` is not insta
 decodes through MPP). Two ways forward, both one decision: install a decoder on the board and sample
 frames from those videos, or obtain a small licensed natural-image set. Until then the S11 numbers
 are **not accepted**, and the report says so rather than quoting the flattering NMI.
+
+### S11 on natural material: measured and accepted, with the gates split correctly
+
+The unlock condition was met on the board: `ffmpeg` was installed, 319 frames were sampled from the
+vendor's own 1080p sample videos (2 fps, scaled to 256x256, **7 video groups**), 20 verbatim
+duplicates were planted, and the same MobileCLIP2-S3 harness embedded everything at **46.34
+ms/image** on the AI cluster.
+
+| metric | value | reading |
+|---|---|---|
+| clustering NMI / purity (k-means, k=7) | **0.881 / 0.865** | frames group by their source video; not perfect, and the confusion is between visually similar clips |
+| same-video cosine mean / min | 0.954 / 0.281 | |
+| cross-video cosine mean / max | 0.470 / **0.763** | the bands **no longer overlap** on natural images - the synthetic set's fatal flaw |
+| verbatim duplicate gate (exact bytes) | precision **1.000** / recall **1.000** | the right instrument for planted copies |
+| embedding duplicate gate, cosine 0.999 | precision 0.370 / recall 1.000 | **rejected as the wrong gate**, with the reason below |
+
+The last row is the interesting one and it is a property of the material, not a bug: at 2 fps, two
+consecutive frames are 0.5 s apart and are near-identical, so an embedding gate cannot separate "a
+planted copy" from "the next frame of the same shot". A real album pipeline therefore splits the
+work exactly as this measurement implies - **exact hashes for verbatim duplicates** (precision and
+recall 1.000 here) and **embeddings for grouping and near-duplicate clustering** (NMI 0.881).
+
+S11 is accepted on this basis: the scenario was blocked, the blocker was a named material gap, the
+material was obtained from the vendor's own assets, and the metrics are reported with the gate that
+each one belongs to. The 1,000-image synthetic fixtures are kept as the record of why synthetic
+material cannot be used for this scenario.

@@ -112,8 +112,12 @@ chunk-overlap, one letter-gap cut).
    and re-run at 44.86 ms/image; it moved the numbers without changing the conclusion - the two
    cosine bands still overlap (intra 0.959/0.881 against inter 0.909/0.981) because MobileCLIP2-S3 is
    trained on natural images and synthetic renders all land in one narrow cone. **S11 is recorded as
-   blocked on material**: it needs a natural-image corpus (the vendor's own 1080p sample videos are
-   on the board, but the board has no frame decoder installed), and no S11 number is accepted.
+   blocked on material**, then unblocked the same day: `ffmpeg` was installed and 319 natural frames
+   were sampled from the vendor's own 1080p sample videos (7 groups, 46.34 ms/image on the AI
+   cluster). Clustering NMI 0.881 / purity 0.865; same-video cosine 0.954 against cross-video 0.470
+   (bands separate, unlike the synthetic set); **verbatim duplicates: precision and recall 1.000
+   with exact hashes**, with the embedding gate explicitly rejected for that job because consecutive
+   frames 0.5 s apart are near-identical. S11 accepted on the split-gate basis.
 4. **S10 embodied decision** - 100 generated scenes with ground truth, a decision-latency budget, the
    S7/S8 interference matrix re-used, `vla/` models optional.
 5. **S13 audio** - optional; the vendor ASR path against a board-built `whisper.cpp`.
