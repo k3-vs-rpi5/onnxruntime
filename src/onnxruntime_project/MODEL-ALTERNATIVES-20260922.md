@@ -413,3 +413,81 @@ celebrate alone: every number above sits next to the official row or is explicit
 none (the decoder has no published figure, and the published *service* row defines no statistic at all
 - acceptance rule R10), and the composed prediction that the real server refused is kept in the table
 as the counter-example rather than deleted.
+
+## 13. Research round: the vendor's own multi-model deployment method
+
+The section-11/12 work was done before reading the vendor's own multi-model solution documents, so this
+is the round that puts the scheme next to theirs. Two documents carry the method and the numbers.
+
+**`solutions/aicomputer_solution/multi_stream_vision.md`** - a 12-stream 1080p video analytics
+application, with a published table per model (total FPS over all twelve streams, VPU+GPU and DDR
+bandwidth alongside): `yolov8n` **134.29**, `yolov5n` 135.35, `yolov8n-pose` 111.78, `yolo26n` 104.18,
+`yolov11n` 101.81, `yolov8n-seg` 98.56, `yolov8s` 77.74, `yolov8m` 39.23, with **19-22 GB/s of DDR
+bandwidth** per run. The method sentence that matters here: the application "keeps only the latest frame
+for each channel and distributes inference tasks to **multiple sessions** in round-robin order".
+
+**`solutions/aicomputer_solution/multi_stream_asr.md`** - a two-stage speech pipeline whose allocation
+is documented to the core: a shared `llama-server` with **`-np 4`** slots, **two encoder threads with
+affinity `8;9`**, and **six decoder threads on cores `10,11,12,13,14,15`**. Its targets are stated as
+well (online frame latency ~50 ms, offline RTF <= 0.4).
+
+So the vendor's own answer to "how do several models share this board" is **multi-session inside one
+process, with the stages pinned to disjoint cores** - which is the shape section 11 arrived at from the
+measurements, and one lever section 11 never pulled: we sized the pools (thread counts) but never
+pinned them.
+
+## 14. Validation round: the scheme against those official numbers, on vision and on VLM
+
+### 14.1 Small vision models: many small sessions beat one big one, and beat the published total
+
+The vendor's application uses multiple sessions; section 11 measured two. The harness gained a `same`
+mode (N identical sessions inside one process, 8/N AI threads each, run concurrently), and `yolov8n`
+was swept over the session count - all eight cores used in every row:
+
+| sessions x threads each | slowest inference | aggregate | against the published 134.29 FPS |
+|---|---|---|---|
+| 1 x 8 | 9.410 ms | 106.27 inf/s | -20.9 % |
+| 2 x 4 | 16.854 ms | 118.66 inf/s | -11.6 % |
+| 4 x 2 | 30.407 ms | 131.55 inf/s | -2.0 % |
+| **8 x 1** | 52.807 ms | **151.50 inf/s** | **+12.8 %** |
+
+(8 x 1 reproduced twice: 151.47 and 151.50. TCM sampled inside the concurrent phase: **8/8 blocks busy,
+eight distinct thread ids**, one per session - the shape the configuration claims.)
+
+Three things fall out of this table, and the third is a correction:
+
+1. **the throughput shape is not the latency shape**: one 8-thread session has the lowest latency
+   (9.41 ms) and the lowest aggregate (106.27/s); eight 1-thread sessions have 5.6x the latency and
+   **+42 % the throughput**. A service picks one, and the vendor's application is the throughput kind;
+2. **against the official number we are now ahead rather than behind**: 151.50 inf/s is **+12.8 %**
+   over the published 12-stream total for the same model, and the 4 x 2 shape sits within 2 % of it.
+   Before this round the honest position was that our best measured aggregate (106/s) was 21 % *below*
+   the vendor's published total - which is exactly the "measuring in isolation" the operator warned
+   about, and it was a real gap rather than a presentation problem;
+3. **round 5's "concurrency is flat" is scoped, not wrong**: that measurement used one session with
+   concurrent runs (`-c`) and two-process splits, and both of those are indeed flat or negative. The
+   in-process multi-*session* shape is a third thing, and it is the one that scales - by 42 % over the
+   single session, with the gain monotone in the session count. The deployment rule for throughput is
+   therefore **N sessions of 8/N threads each**, not one fat session.
+
+### 14.2 VLM: the vendor's own two-stage allocation does not transfer to the multi-slot service
+
+Section 12 found that starving the VLM encoder to two threads costs 33 %. The research round then
+supplied the strongest possible counter-argument: the vendor's own ASR solution *does* allocate 2 + 6,
+and it pins the stages to disjoint cores (`8;9` and `10-15`) - the lever we had not tried. So it was
+tested: the VLM's encoder at two threads with `spacemit_ep_intra_thread_affinity = "8;9"` and the text
+model at `-t 6`, four slots, four simultaneous image requests.
+
+| served shape | aggregate |
+|---|---|
+| encoder 8, text 8 (measured best) | **47.88 t/s** |
+| encoder 2 + text 6, pinned to 8;9 | 32.06 t/s |
+| encoder 2 + text 6, unpinned | 32.22 t/s |
+
+The affinity pinning changes nothing (32.06 against 32.22), and the shape is still 33 % below the best
+measured shape. The ASR rule therefore does not transfer, and the reason is structural rather than a
+matter of tuning: in the ASR solution a *streaming* encoder runs continuously beside an offline
+recogniser, so two cores for the encoder is a real division of labour; in the VLM service each of four
+slots runs its own encode-then-decode, so the encoder is on the critical path of every request and
+needs its width. **Both rules are correct for their own workload**, and this project now has both
+measured with the official allocation as the thing being tested rather than assumed.

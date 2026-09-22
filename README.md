@@ -308,6 +308,19 @@ package identity, and the documented entry points we are allowed to use.
   *stages*. So section 11's method is a single-stream tool, the VLM deployment rule stays
   one server / four slots / encoder 8 / text 8, and the refused prediction is kept in the
   table as the counter-example.
+  Sections 13-14 are the research round the operator asked for and the validation that
+  follows it, both against the vendor's own documents: their 12-stream application
+  (`yolov8n` **134.29 FPS total**, "multiple sessions in round-robin") and their ASR
+  allocation (`-np 4`, encoder pinned `8;9`, decoder on `10-15`). Validating our scheme on
+  small vision models put the project **ahead of the published total for the first time**:
+  one process, eight 1-thread sessions of `yolov8n` reach **151.50 inf/s, +12.8 %**, with
+  TCM showing 8/8 blocks and eight distinct thread ids - where one 8-thread session manages
+  106.27/s (-20.9 %) and the 4x2 shape sits within 2 %. That also **scopes round 5's
+  "concurrency is flat"**: it holds for `-c` runs and two-process splits, not for in-process
+  multi-session. On the VLM the vendor's own ASR allocation was tested directly and does
+  **not** transfer (32.06 t/s pinned against 47.88 for the measured best), because ASR
+  streams an encoder beside an offline recogniser while the VLM runs encode-then-decode per
+  slot. Both rules are now measured with the official allocation as the thing being tested.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

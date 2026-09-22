@@ -24,15 +24,22 @@
 // Usage:
 //   ./pipeline <modelA.onnx> <modelB.onnx> <mode:serial|overlap> <iterations> <threadsA> <threadsB>
 //              [global-pool 0|1]
+//   ./pipeline <model.onnx> same <sessions> <iterations> <threads-each>
 //
 // Per-stage thread counts matter: the split is what decides whether an overlapped pair beats running
 // the two models back to back, and stages do not scale alike (the SAM encoder loses 59 % from eight
 // threads to four while its decoder loses 8 %), so the split has to be searched, not assumed.
+//
+// `same` mode answers a different question: how much aggregate throughput does *one process running N
+// identical sessions* get, which is the shape the vendor's own multi-stream vision application uses
+// ("distributes inference tasks to multiple sessions in round-robin order") and the only way to compare
+// against its published 12-stream totals.
 
 #include <onnxruntime_cxx_api.h>
 
 #include <chrono>
 #include <cstring>
+#include <memory>
 #include <dlfcn.h>
 #include <iostream>
 #include <string>
@@ -155,8 +162,42 @@ int main(int argc, char **argv) {
     const std::string model_a = argv[1], model_b = argv[2], mode = argv[3];
     const int iterations = std::stoi(argv[4]);
     const int threads_a = std::stoi(argv[5]);
-    const int threads_b = std::stoi(argv[6]);
+    const int threads_b = argc > 6 && std::string(argv[6]).find_first_not_of("0123456789") == std::string::npos
+                              ? std::stoi(argv[6]) : 0;
     const int global_pool = argc > 7 ? std::stoi(argv[7]) : 0;
+
+    if (mode == "same") {
+        // N identical sessions, 8/N AI threads each, run concurrently in this one process.
+        const int sessions = std::stoi(argv[4]);
+        const int iterations_same = std::stoi(argv[5]);
+        const int threads_each = std::stoi(argv[6]);
+        void *same_handle = dlopen("libspacemit_ep.so", RTLD_NOW);
+        if (!same_handle) { std::cerr << "dlopen failed\n"; return 1; }
+        g_spacemit_init = reinterpret_cast<OrtSpacemitEnvInit>(
+            dlsym(same_handle, "OrtSessionOptionsSpaceMITEnvInit"));
+        if (!g_spacemit_init) { std::cerr << "symbol missing\n"; return 1; }
+        g_env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "same");
+        std::vector<std::unique_ptr<Stage>> stages;
+        std::vector<std::string> options = {
+            "SPACEMIT_EP_INTRA_THREAD_NUM|" + std::to_string(threads_each),
+            "SPACEMIT_EP_INTER_THREAD_NUM|1"};
+        for (int i = 0; i < sessions; ++i)
+            stages.push_back(std::make_unique<Stage>(model_a, options, "S" + std::to_string(i),
+                                                     threads_each));
+        std::vector<double> times(sessions, 0.0);
+        std::vector<std::thread> workers;
+        std::cout << "mode=same sessions=" << sessions << " threads_each=" << threads_each
+                  << " iterations=" << iterations_same << "\n";
+        for (int i = 0; i < sessions; ++i)
+            workers.emplace_back([&, i] { times[i] = time_stage(*stages[i], iterations_same); });
+        for (auto &worker : workers) worker.join();
+        double worst = 0.0, total = 0.0;
+        for (double t : times) { worst = t > worst ? t : worst; total += t; }
+        for (int i = 0; i < sessions; ++i) std::cout << "  S" << i << "_ms=" << times[i] << "\n";
+        std::cout << "slowest_ms=" << worst << " aggregate_per_s=" << (sessions * 1000.0 / worst)
+                  << "\n";
+        return 0;
+    }
 
     void *handle = dlopen("libspacemit_ep.so", RTLD_NOW);
     if (!handle) {
