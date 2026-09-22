@@ -558,10 +558,38 @@ def rule_einsum_pixel_matmul(model, tag="capconv", only=None):
     return rewritten
 
 
+def rule_not_to_equal(model, tag="capconv", only=None):
+    """`Not(x)` -> `Equal(x, false)`.
+
+    Evidence: `Not` is **absent** from the supported-operator list while `Equal` is on it, and the
+    substitution is the definition of boolean negation. In `mobilesam_decoder` there is exactly one
+    such node, sitting between an `Equal` and a `Cast`; whether removing it matters is not assumed -
+    it is measured by the census, one variable at a time, because the earlier rounds showed that a
+    provider region's boundary depends on which unsupported node breaks it.
+    """
+    rewritten = []
+    for node in list(model.graph.node):
+        if node.op_type != "Not":
+            continue
+        if only and only not in (node.name or ""):
+            continue
+        base = f"{tag}_{(node.name or node.output[0]).strip('/').replace('/', '_')}"
+        false_name = f"{base}_false"
+        model.graph.initializer.append(
+            numpy_helper.from_array(np.array(False, dtype=np.bool_), false_name))
+        index = list(model.graph.node).index(node)
+        replacement = helper.make_node(
+            "Equal", [node.input[0], false_name], [node.output[0]], name=f"{base}/equal_false")
+        # A protobuf repeated field does not support item assignment; replace in place instead.
+        model.graph.node[index].CopyFrom(replacement)
+        rewritten.append(f"{node.name or ''}: Not -> Equal(x, false)")
+    return rewritten
+
+
 RULES = {"resize": rule_resize_linear, "resize-attrs": rule_resize_nearest_mode,
          "resize-canonical": rule_resize_canonicalise, "resize-fp32": rule_resize_fp16_through_fp32,
          "exp-to-pow": rule_exp_to_pow, "reduce-l2": rule_reduce_l2,
-         "einsum-pixel": rule_einsum_pixel_matmul}
+         "einsum-pixel": rule_einsum_pixel_matmul, "not-to-equal": rule_not_to_equal}
 
 
 def convert(model_path, out_path, rules, only=None):

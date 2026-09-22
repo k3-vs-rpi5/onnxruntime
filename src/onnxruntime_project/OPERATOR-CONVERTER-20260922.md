@@ -290,3 +290,37 @@ Two conclusions, both recorded rather than carried:
 
 That is the third outcome the discipline allows, alongside *rejected with mechanism* (7.1) and
 *blocked-unexplained* (7.2): a hypothesis **disproved by query**, before any artefact was built.
+
+## 8. The first accepted rule, and what it actually bought
+
+`mobilesam_decoder` also carries a single `Not` node - absent from the supported list, while `Equal` is
+on it - so the cheapest exact rule in the catalogue is `Not(x) -> Equal(x, false)`. It was run as a
+**controlled experiment**, one variable changed, with the expectation stated before the measurement:
+if that node were what fragments the region, the census should show the 270 CPU node executions
+collapsing; if not, they should barely move.
+
+| check | result |
+|---|---|
+| numeric gate | **bit-identical** (`max|diff| = 0`) |
+| census | CPU node executions **270 -> 267**; CPU share 20.3 % -> 20.7 % (unchanged within noise) |
+| per-node diff | exactly three nodes left the CPU EP - `/Not`, `/Cast`, `/Mul_2` - and none joined it |
+| unprofiled timing | **28.94 / 28.74 ms -> 28.38 / 28.43 ms** (~1.8 %, ~0.5 ms, two runs each) |
+
+So the rule is **accepted** - the first one in this converter's history - and the interesting part is
+what it was *not*: the region did not merge (267 of 270 node executions are still on the CPU EP), and
+the gain did not come from reconnection. The boundary simply moved by three nodes, and those three
+nodes are worth about half a millisecond. The hypothesis that one unsupported operator fragments the
+whole region is therefore **disproved for this graph**, while the rule that a boundary can be moved by
+one exact substitution is confirmed.
+
+Two consequences, both recorded rather than planned:
+
+1. the model's 20.3 % fallback (8.6 ms) is untouched by this rule; it is dynamic-shape handling spread
+   over 267 nodes, and section 7.3 showed there is nothing to fold;
+2. the remaining unsupported operator of the same kind, `OneHot`, has the same shape of rule
+   (`Gather` from a constant table padded to `depth` - the query showed `depth = 5` with only two
+   values supplied, so the pad is what makes it exact) but its **own measured cost is 0.06 ms**, i.e.
+   a ceiling of a fifth of a millisecond unless it also moves a boundary. It stays priced and
+   unimplemented: the machinery (constant-folding its `values` chain) costs more than the rule is
+   demonstrably worth, and this project does not build rules on a hypothesis it has already disproved
+   once.

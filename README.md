@@ -269,6 +269,16 @@ package identity, and the documented entry points we are allowed to use.
   (`Not -> Equal(x,false)`, `OneHot -> Gather`) cannot touch the 8.59 ms spread over 270
   nodes, and the addressable form of the candidate - a static-prompt decoder - is a model
   change, recorded as 20.3 % of the frame and not carried as a pending optimisation.
+  Section 8 is the converter's **first accepted rule**, run as a controlled experiment
+  with its expectation stated first: `Not(x) -> Equal(x, false)` is bit-identical, moves
+  exactly three nodes off the CPU EP (`/Not`, `/Cast`, `/Mul_2`, none joining) and takes
+  `mobilesam_decoder` from 28.94/28.74 ms to 28.38/28.43 ms (~1.8 %, ~0.5 ms). The
+  interesting part is what it was *not* - the region did not merge (267 of 270 node
+  executions remain on the CPU EP), so the gain is a boundary that moved by three nodes.
+  That **disproves** "one unsupported operator fragments the whole region" for this graph
+  while confirming the smaller mechanism. `OneHot -> Gather` is exact too (pad values to
+  `depth = 5`) but its own cost is 0.06 ms: priced, unimplemented, and explicitly not built
+  on a hypothesis this project has already disproved once.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
