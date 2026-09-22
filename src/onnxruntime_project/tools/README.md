@@ -60,6 +60,11 @@ The first two landed scripts are the baseline harness:
   one process (serial vs overlapped, TCM sampled), and then the same pipeline running *through* the
   VLM client window. The first version called the synchronous runner and measured a sequence instead
   of an overlap; the corrected cell and the invalid ones are both in the evidence.
+* `make-ingest-fixture.py` + `cer-wer.py` - the S12 document-ingestion pair
+  (`SCENARIO-PROGRAMME-20260922.md` §11): a deterministic 30-page fixture (printed / scanned /
+  tables) whose ground truth is built from what is drawn, and the per-class CER/WER gate that both
+  the independent engine (tesseract 5.5.0, printed class exactly 0.0000) and our own chain are read
+  with. Two earlier fixture versions are recorded as failures - their 10-37 % "CER" was a layout bug.
 
 The board scripts run on the board and the host pushes them and pulls the logs. Results of the
 2026-09-21 rounds are in `../BASELINE*-20260921.md`, `../OPTIMISATION*-20260921.md` and

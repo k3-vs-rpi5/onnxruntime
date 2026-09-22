@@ -385,3 +385,39 @@ Immediate steps, in order:
    the negative control (VLM-only) and the interference matrix from S7/S8 re-used; `vla/` models
    optional inside the card's budget.
 5. **S13** - optional, only if time allows: vendor ASR path against a board-built `whisper.cpp`.
+
+## 11. S12 execution log (started 2026-09-22)
+
+**Fixture v3 is sealed and self-consistent.** `tools/make-ingest-fixture.py` generates 30 pages -
+10 printed (PNG), 10 scanned (rotated 1.2 deg, blurred, shaded, noise, JPEG q55), 10 tables - with
+ground truth built from *what is drawn*, plus `manifest.tsv` carrying a digest per image and per
+transcript. Two earlier versions of the generator are recorded as failures: unwrapped text ran off
+the right edge, then wrapped text ran off the bottom, so the truth file described text the image did
+not contain. Both produced a plausible-looking 10-37 % "CER" that was entirely a layout bug - the
+reason the fixture is now "what is drawn is what is written down".
+
+**Independent engine baseline (tesseract 5.5.0, `-l eng --psm 3`, all 30 pages, run on the board):**
+
+| class | pages | CER mean | CER max | WER mean | WER max |
+|---|---|---|---|---|---|
+| printed (negative control) | 10 | **0.0000** | 0.0000 | **0.0000** | 0.0000 |
+| scanned | 10 | **0.0020** | 0.0105 | **0.0148** | 0.0745 |
+| tables | 10 | **0.0188** | 0.0231 | **0.0973** | 0.1286 |
+
+The printed class reading exactly zero is the fixture's self-check: an engine that cannot reach ~0
+on clean renders is misconfigured, and any residual there is a bug, not a result.
+
+**Pass bands this sets for our own chain (to be measured next):** printed CER <= 0.01 (a clean render
+is not allowed to be a hard problem); scanned and table CER within 1.5x of tesseract's numbers on the
+same pages, with the *gap stated*, not assumed; pages/minute reported for both engines. The negative
+control is the printed class itself, and the counter-control is that the scanned class must show a
+non-zero error - a chain that reports 0.0000 there is not believed, it is investigated.
+
+**Instrument added**: `tools/cer-wer.py` (equal-weight per-class CER/WER over pages, same
+normalisation for both sides). **Evidence**: `k3-evidence/onnxruntime/s12-fixture-20260922/`
+(fixture, manifest, tesseract transcripts, `tesseract-rates.txt`).
+
+**Still to do for S12**: run our own PP-OCRv6 detector + recogniser over the same pages (the pieces
+are measured as stages already: det 35.99 ms, rec 2.36 ms, both EP-complete) and fill in the card's
+own-chain column; the Python path must not be used blindly because this board's Python ONNX Runtime
+silently falls back to the CPU EP.
