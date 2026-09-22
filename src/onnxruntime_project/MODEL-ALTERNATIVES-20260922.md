@@ -279,3 +279,51 @@ Read with the TCM table in mind, the three pairs span +8 %/+34 % (SAM), +101 %/+
 and what each model can do without blocks than about the stages themselves. That spread is the reason
 this section now carries a caveat instead of a deployment rule for pipelines: **the numbers are
 measurements of a contended board, and they are labelled that way.**
+
+## 11. The pipeline question, answered inside one process
+
+Section 10.1 named the missing artefact: two *sessions* in one process, which `onnxruntime_perf_test`
+cannot express because it runs one model per process. It now exists as
+`tools/ort-two-session-pipeline.cpp`, cross-compiled with the workspace toolchain and run on the board.
+It loads the provider the way the vendor's own media engine does (`dlopen("libspacemit_ep.so")` and
+`OrtSessionOptionsSpaceMITEnvInit`) because the provider is **not** registered with the runtime as an
+ordinary one - a Python `providers=[...]` list silently falls back to the CPU EP, which is how a
+harness can measure the CPU while believing it measured the AI cluster.
+
+Pipeline: `yolov8n` (detection) then `mixformer_v2` (pose), both EP-side, one process, two sessions.
+
+| shape | stage A | stage B | frame | throughput |
+|---|---|---|---|---|
+| serial, 4 + 4 cores | 14.019 ms | 22.001 ms | 36.02 ms | 27.76 fps |
+| **overlap, 4 + 4 cores** | 15.281 ms (+9.0 %) | 23.202 ms (+5.5 %) | **23.20 ms** | **43.10 fps** |
+| overlap, 4 + 4 with `USE_GLOBAL_INTRA_THREAD=1` | 15.304 ms | 23.120 ms | 23.12 ms | 43.25 fps |
+| serial, 8 + 8 cores | - | - | **impossible**: `Not enough available AI cores for the thread pool: required 8, available 0` | - |
+| two processes, one model each, run alternately at 8 cores (derived from the solo rows) | 9.540 ms | 14.984 ms | 24.52 ms | 40.78 fps |
+
+Three findings, each with its mechanism:
+
+1. **the AI cores are allocated per session, and 8 + 8 is not a shape**: the first session takes all
+   eight cores and the second cannot create at all. The vendor's documented
+   `SPACEMIT_EP_USE_GLOBAL_INTRA_THREAD` does **not** lift that: with it set, `8 + 8` still fails and
+   `4 + 4` performs identically to the non-shared case (43.25 against 43.10 fps). Two sessions in one
+   process therefore **must split the cluster**, and 4 + 4 is the split that works;
+2. **overlapping inside the process pays 1.55x** over serialising the same two sessions - and it does
+   so cheaply: +9.0 % on the detector and +5.5 % on the pose model, against the 8 %/34 % to 101 %/53 %
+   that the *cross-process* attempts showed. That contrast is the whole point of the earlier caveat:
+   the cross-process numbers were contention, these are a pipeline;
+3. **the in-process pipeline also beats the shape this project had recommended**: running the two
+   models alternately, each with all eight cores and one process at a time, gives 24.52 ms per frame
+   (40.78 fps) against the overlapped 4 + 4 session pair at 23.20 ms (43.10 fps) - **5.7 % better**,
+   because a stage that waits for the other to finish leaves the cluster idle for the whole of the
+   other stage. The earlier rule ("one EP process per board, stages serialised") is therefore updated:
+   one process, **two sessions, cores split 4 + 4, stages overlapped**.
+
+The TCM evidence matches the configuration: sampled during the overlapped run the eight blocks are
+busy with **two different thread-group ids**, four blocks each - the two sessions sharing the cluster
+the way the split says they should, instead of one process holding all eight as in section 10.1.
+
+Method note, because it cost two build-measure cycles: this harness's first version read the input
+shape from a `TypeInfo` temporary and got rank 0, and its second version wrapped an input buffer that
+was local to the constructor - `CreateTensor` does not copy - so the first `Run` read freed memory and
+segfaulted. Both were found by printing what the code saw rather than by reasoning about the provider,
+which is the order section 5.0 prescribes.

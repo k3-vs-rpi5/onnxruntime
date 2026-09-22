@@ -279,6 +279,17 @@ package identity, and the documented entry points we are allowed to use.
   while confirming the smaller mechanism. `OneHot -> Gather` is exact too (pad values to
   `depth = 5`) but its own cost is 0.06 ms: priced, unimplemented, and explicitly not built
   on a hypothesis this project has already disproved once.
+  Section 11 builds the artefact section 10.1 named - `tools/ort-two-session-pipeline.cpp`,
+  two sessions in **one process**, EP loaded the way the vendor's own media engine loads it
+  (a Python `providers=[...]` list silently falls back to the CPU EP, which is how a harness
+  can measure the CPU while believing it measured the AI cluster). Two findings change the
+  deployment rule: the AI cores are allocated **per session** (8+8 is refused with
+  "required 8, available 0", and `SPACEMIT_EP_USE_GLOBAL_INTRA_THREAD` does not lift it),
+  so two sessions must split 4+4; and overlapped 4+4 gives **43.10 fps against 27.76
+  serialised (1.55x)** with only +9.0 %/+5.5 % stage cost, which is also **5.7 % better than
+  running the two models alternately at 8 cores** - so the earlier "one process, stages
+  serialised" rule becomes **one process, two sessions, cores 4+4, stages overlapped**. TCM
+  sampled during the run shows the eight blocks split between two thread groups, four each.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
