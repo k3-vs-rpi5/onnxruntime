@@ -382,6 +382,17 @@ package identity, and the documented entry points we are allowed to use.
   2-request VLM service genuinely overlapped the frame loses 14.6 %, the detector stage 3.4x and the
   service 39-47 % of its served rate), and the scenario matrix in `SCENARIO-VALIDATION-20260922.md`
   now carries eight entries with their numbers.
+  `SCENARIO-PROGRAMME-20260922.md` is the scheme audit the operator asked for: what the current
+  validation scheme does *not* cover (semantic quality, statistics, an independent oracle, fixtures,
+  soak, resource accounting, failure taxonomy, acceptance levels), the v2 additions that fix it
+  (L2b quality gates, L6 reference step, L7 soak, and the three policies), and the next scenarios -
+  **S9 LLM RAG over a knowledge base** (acceptance axes taken verbatim from the vendor's own AI NAS
+  document: parse speed, vectorise speed, recall accuracy, answer latency), **S10 embodied
+  understanding + decision**, **S11 photo album construction**, **S12 document ingestion**, **S13
+  audio** - with the material this round found for them: installed `llama-embedding`/`--embeddings`,
+  the archive's `embed/`, `rerank/` and **`vla/`** families, and the vendor applications that can
+  serve as oracles (`zenow` 0.0.184, `llm-sdk` 0.0.39, `seewise` 1.0.16, `yumeet` 1.0.1). No code
+  was written; the document ends with the four decisions it needs from the operator.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

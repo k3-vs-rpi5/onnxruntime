@@ -50,6 +50,7 @@ Executed from `NEXT-ROUND-ANALYSIS-20260922.md`, in its order:
 | G4 | the VLM acceptance basis | **done** - `VLM-ACCEPTANCE-BASIS-20260922.md` |
 | G3 | make the multi-stream comparison like-for-like | open - three priced options, the strongest needs operator approval (D4) |
 | G5 | composed embodied/perception scenarios under the three deployment rules | **two done** - S7 detector beside the VLM service (`SCENARIO-SENSE-LANGUAGE-20260922.md`), S8 detector->depth plus the language service (`SCENARIO-EMBODIED-20260922.md`); the scheme is `SCENARIO-VALIDATION-20260922.md` |
+| G8 | scenario programme v2 and the next scenarios | **planned** - `SCENARIO-PROGRAMME-20260922.md` (quality gates, oracle policy, statistics/fixture/regression policy; S9 RAG, S10 embodied decision, S11 album, S12 document ingestion, S13 audio); analysis only, awaiting the four operator decisions listed there |
 | G6 | the LLM decode rows: pursue or demote | proposal: demote to context (D8) |
 | G7 | `/dev/tcm_sync_mem` | **closed** - an optional second TCM for the Spine sync/cache pool, not implemented by the K3 BSP and declared low-impact by the vendor (`TCM-SYNC-MEM-20260922.md`) |
 

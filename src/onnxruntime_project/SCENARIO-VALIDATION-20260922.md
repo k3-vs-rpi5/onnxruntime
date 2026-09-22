@@ -1,5 +1,11 @@
 # Scenario testing and validation: the scheme this project holds itself to
 
+> **Update 2026-09-22 (afternoon)**: an audit of this scheme's gaps, the v2 additions (semantic
+> quality gates L2b, the L6 reference/oracle step, L7 soak, statistics/fixture/regression policies,
+> maturity levels) and the next scenario definitions (S9 RAG knowledge base, S10 embodied decision,
+> S11 album, S12 document ingestion, S13 audio) are in **`SCENARIO-PROGRAMME-20260922.md`**. That
+> document is the programme; this one remains the scheme that every scenario is measured under.
+
 Asked for by the operator on 2026-09-22, and written before the first scenario was run under it. A
 **scenario** here is a deployment shape with a workload and a stated acceptance basis - not a
 benchmark, not a model, and not an optimisation. The scheme exists so that any scenario, including
@@ -73,6 +79,11 @@ One directory under `/root/k3-evidence/onnxruntime/<scenario>-<date>/`, with:
 | S6 | VLM 4-slot service | C4 | measured | 47.91 t/s cold-image 4x32 tokens; 68.65 first round and ~85.8 cached rounds at 4x64 tokens |
 | S7 | **perception beside the VLM service** | C5 | measured 2026-09-22 - `SCENARIO-SENSE-LANGUAGE-20260922.md` | VLM cold-image round -27.7 %, cached rounds -31.9 %, detector +115 % latency; the last round (detector finished) returns to the baseline to the digit |
 | S8 | embodied stack with depth + language | C5 | measured 2026-09-22 - `SCENARIO-EMBODIED-20260922.md` | perception alone 113.06 ms/frame (8.85 fps, overlap +12.7 % over serial); with the 2-request service truly overlapped: frame -14.6 %, detector stage +236 %, service -39.4 % / -46.7 % |
+| S9 | LLM RAG over a knowledge base | C6 (planned) | **defined**, not instrumented - `SCENARIO-PROGRAMME-20260922.md` §3 | acceptance axes taken from the vendor's own AI NAS document: parse speed, vectorise speed, recall@k, answer latency |
+| S10 | embodied vision understanding + decision | C6 (planned) | defined | decision accuracy on generated scenes with ground truth; `vla/` models available in the vendor archive |
+| S11 | photo album construction | C6 (planned) | defined | cluster purity/NMI, duplicate precision/recall, search top-k; oracles: host reference, vendor `seewise` |
+| S12 | document -> knowledge base ingestion | C6 (planned) | defined | CER/WER per page type; our PP-OCR pair is already measured |
+| S13 | audio / meeting (optional) | C6 (planned) | defined | vendor `yumeet` is the ready-made oracle; the domain is currently unmeasured here |
 
 ## 5. What a completed scenario claim looks like
 
