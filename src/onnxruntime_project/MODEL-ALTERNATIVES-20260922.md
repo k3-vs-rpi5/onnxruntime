@@ -231,3 +231,51 @@ recogniser costs - and running the two stages at once costs the detector 6.8 % i
 frame therefore takes **38.33 ms serialised against 38.42 ms overlapped**: the overlap buys nothing.
 The engineering conclusion is the opposite of the usual one: **serialise these two stages on the same
 eight cores** rather than giving each its own, and do not spend effort on the 2.3 ms stage.
+
+### 10.1 Correction: that was TCM contention, not a pipeline shape
+
+The paragraph above was written before the instrument that decides the question was pointed at it, and
+`spacemit-tcm-smi` refutes the framing. Sampled while the two stages ran "concurrently":
+
+```
+available_blocks=0/8
+ID 0..7   busy   ...   PID 3505078        <-- every block names ONE process
+```
+
+**All eight AI-core TCM blocks belong to a single process** - the first one to start - and the second
+process runs with none. So two EP *processes* on this board do not share the cluster; the second is
+starved of the resource the first took in full. The same table reads the same way in the second
+pipeline measured below. What section 10 actually measured is therefore *two processes fighting over
+the TCM table*, which is a real and reportable deployment finding (and the mechanism behind round 5's
+"one EP process per board" rule), but it is **not** a measurement of a two-stage pipeline.
+
+Two things follow, and both are recorded rather than patched over:
+
+* the deployment rule stands and is now explainable: a service that puts two models in two processes
+  pays contention on a global eight-block resource, so the practical shape remains **one EP process
+  per board**, stages serialised inside it;
+* the pipeline question - whether two stages of similar cost should overlap - is **unmeasured**. It
+  requires two *sessions* inside one process sharing the provider's compute pool, which is exactly what
+  the vendor's `SPACEMIT_EP_USE_GLOBAL_INTRA_THREAD` documents ("all models share the same compute
+  resources") and which `onnxruntime_perf_test` cannot express: it runs one model per process. That is
+  a host application, not a flag, and it is the next artefact this track needs.
+
+### 10.2 Two more pipelines, measured the same way (with the TCM table this time)
+
+For completeness, and because the numbers are still useful as *contention* data, two further pairs
+were measured with the same three configurations:
+
+| pipeline (stage A / stage B) | stage | solo, 8 threads | overlapped 8 + 8 | split 4 + 4 overlapped |
+|---|---|---|---|---|
+| SAM: `mobilesam_encoder_tiny` / `mobilesam_decoder` | A | 40.304 ms | **43.565 ms** | 67.228 ms |
+| | B | 28.983 ms | **38.866 ms** | 49.638 ms |
+| detect→pose: `yolov8n` / `mixformer_v2` | A | 9.540 ms | **19.170 ms** | 29.242 ms |
+| | B | 14.984 ms | **22.946 ms** | 34.865 ms |
+| OCR: `PP-OCRv6_tiny_det` / `PP-OCRv6_tiny_rec` | A | 35.989 ms | 39.000 ms | - |
+| | B | 2.340 ms | 5.637 ms | - |
+
+Read with the TCM table in mind, the three pairs span +8 %/+34 % (SAM), +101 %/+53 %
+(detect→pose) and +8 %/+141 % (OCR) - a spread that says more about which process won the TCM race
+and what each model can do without blocks than about the stages themselves. That spread is the reason
+this section now carries a caveat instead of a deployment rule for pipelines: **the numbers are
+measurements of a contended board, and they are labelled that way.**
