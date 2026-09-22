@@ -51,6 +51,10 @@ echo "== cross-compiling the OCR chain (S12)"
 "$cxx" -O2 -std=c++17 "$TOOLS/ort-ocr-chain.cpp" -o "$BUILD/bin/ocr-chain" \
     -I"$PKG/onnxrt" -L"$PKG/onnxrt" -lonnxruntime -ldl -lpthread
 
+echo "== cross-compiling the image-embedding harness (S11)"
+"$cxx" -O2 -std=c++17 "$TOOLS/ort-embed-image.cpp" -o "$BUILD/bin/embed-image" \
+    -I"$PKG/onnxrt" -L"$PKG/onnxrt" -lonnxruntime -ldl -lpthread
+
 echo "== generating the matrix probes (the instrument published in AI-CLUSTER-PEAK-20260922.md)"
 for size in 1024 2048 4096; do
     python3 "$TOOLS/make-ime-probe.py" "$BUILD/probes/ime-probe-$size.onnx" \

@@ -683,3 +683,11 @@ agglomerative over cosine) with NMI against `labels.tsv`; (3) `imagehash` duplic
 precision/recall against the planted 20; (4) the text-query row (BGE-Small-Zh text embedding against
 the image vectors, or the encoders' own text towers if the vendor ships them); (5) build time per
 1,000 images.
+
+**S11 embedding harness built and validated.** `tools/ort-embed-image.cpp` (cross-built by
+`scripts/build.sh`, output `build/bin/embed-image`) reads binary PPM, resizes to the encoder's square
+input, normalises either CLIP-style or [-1,1], runs one provider-claimed session at eight threads and
+writes one JSON line per image (`{"image":..., "vector":[...]}`). Validated on the board with 20
+fixture images through MobileCLIP2-S3 (256x256, `--norm clip`): the first ten ran end-to-end and the
+run reports **74.95 ms/image**. The full 1,000-image pass, the clustering/NMI and the `imagehash`
+duplicate precision/recall against the planted 20 are the remaining S11 measurements.
