@@ -260,6 +260,15 @@ package identity, and the documented entry points we are allowed to use.
   in the first inference** after a successful session init, with primitives, shape, dtype
   context and axis all excluded by probes - recorded as **blocked-unexplained**, with the
   reproduction and the passing probes attached for the vendor.
+  Section 7.3 closes the third defective candidate by **query rather than by code**:
+  `mobilesam_decoder`'s `Shape` x36 / `Expand` / `Not` / `OneHot` cluster looked like
+  removable shape plumbing, and counting the nodes against shapes that inference can
+  actually prove returns **0 of 36 static** - the model is a *promptable* decoder whose
+  `point_coords [1, num_points, 2]` makes that dimension a genuine runtime variable. The
+  hypothesis is disproved before any artefact was built, the two exact rules left
+  (`Not -> Equal(x,false)`, `OneHot -> Gather`) cannot touch the 8.59 ms spread over 270
+  nodes, and the addressable form of the candidate - a static-prompt decoder - is a model
+  change, recorded as 20.3 % of the frame and not carried as a pending optimisation.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

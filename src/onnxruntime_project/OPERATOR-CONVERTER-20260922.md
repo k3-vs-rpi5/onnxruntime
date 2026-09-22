@@ -251,3 +251,42 @@ can perform - primitives, shape, dtype context, axis - passes beside it. The rul
 and this graph, and naming it needs either the provider's internals or a longer reduction than this
 pass could afford. The reproduction travels to the vendor with the probes that pass beside it, which
 is what makes it actionable rather than a complaint.
+
+### 7.3 `mobilesam_decoder_sim.dynq`: the hypothesis was disproved by the query, before any rule
+
+This model has the most fallback in the catalogue after `yoloe` - **20.3 %** of a 28.98 ms frame, with
+**270 CPU node executions per frame** and a largest single node of only 0.32 ms. That signature says
+"fragmentation", and the unsupported operators named by the query are `Shape` (36), `Expand` (2),
+`Not` (1) and `OneHot` (1). The obvious hypothesis was that the `Shape` nodes are removable plumbing -
+a shape that is statically known can be replaced by a constant initializer, which is exactly the kind
+of input the provider requires for `Reshape`/`Slice`/`Expand`.
+
+**The query killed it, with a number.** Counting every `Shape` node against the shapes that shape
+inference can actually prove:
+
+| `Shape` inputs | count |
+|---|---|
+| fully static dimensions | **0** |
+| partially dynamic | 14 |
+| no or empty shape | 22 |
+
+and the reason is structural, not a tooling gap: the model's inputs include
+`point_coords [1, num_points, 2]` and `point_labels [1, num_points]`. It is a **promptable** decoder,
+so the dimension most of that plumbing computes is a genuine runtime variable - one that a service
+changes per request. A shape-folding rule therefore has **zero applicable nodes** here, and the 8.59 ms
+of fallback is not plumbing that can be simplified away; it is dynamic-shape handling the provider does
+not claim, in a graph the vendor ships for exactly that purpose.
+
+Two conclusions, both recorded rather than carried:
+
+1. for this candidate the only exact rules left are tiny (`Not(x)` -> `Equal(x, false)` - `Not` is not
+   on the supported list while `Equal` is - and `OneHot` -> `Gather` from a constant table). Neither
+   touches the 8.59 ms, because that time is spread over 270 nodes: **there is no rule to write**, and
+   a rule that reroutes the region through the provider is exactly the trade section 7.1 measured as a
+   loss;
+2. the addressable version of this candidate is a different artefact - a **static-prompt** decoder,
+   i.e. a model change - which is out of the current contract and is recorded here as the number (20.3 %
+   of the frame) rather than as a pending optimisation.
+
+That is the third outcome the discipline allows, alongside *rejected with mechanism* (7.1) and
+*blocked-unexplained* (7.2): a hypothesis **disproved by query**, before any artefact was built.

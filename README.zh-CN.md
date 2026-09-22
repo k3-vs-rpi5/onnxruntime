@@ -163,6 +163,11 @@ AI 工作的 ONNX 侧。两个产物必须放在一起看：承载 SpacemiT 构�
   `superpoint` 那 1 个 `ReduceL2`（0.434 ms）被降级为位级一致的 `Sqrt(ReduceSum(x*x))`，而 provider
   **在会话初始化成功后、首次推理时段错误**，基本算子、形状、dtype 上下文、归约轴均被探针排除——记
   **blocked-unexplained**，复现与"旁边全部通过的探针"一起交厂商。
+  第 7.3 节用**查询而非代码**关闭第三个带缺陷候选：`mobilesam_decoder` 的 `Shape`×36 / `Expand` /
+  `Not` / `OneHot` 看起来是"可折叠的形状管道"，但把节点与"形状推断真能证明的形状"对齐后是 **36 个里 0 个
+  静态**——该模型是**可提示解码器**，`point_coords [1, num_points, 2]` 使那一维是真正的运行时变量。假设在
+  任何产物生成之前就被否掉；剩下两条精确规则（`Not → Equal(x,false)`、`OneHot → Gather`）动不了摊在 270 个
+  节点上的 8.59 ms；而该候选可优化的形态是"静态提示解码器"＝改模型，按 20.3 % 帧时间记录、不留待办。
   `src/onnxruntime` 未做任何修改。
 
 ## 工作区登记
