@@ -856,3 +856,17 @@ path costs more per call than four separate calls, and the padding is wasted wor
 recorded with the numbers, and the parallel-axis table now has all four rows measured: decode gains
 from slots (+53.8 %), prefill does not, embedding does not (+7.7 %), OCR batching is negative
 (-70 %). Each row is a *call-shape* result on the same model and the same board.
+
+**RAG optimisation sweep: attempted, did not complete (kept as a failure).** `tools/rag-opt.py` was
+written to price the two levers the parallel-axis measurement pointed at - retrieved-context size
+(1/2/4 chunks) and `cache_prompt` - per cell, on the same eight questions. The run was interrupted by
+the environment rather than by the harness: the LLM server logged `cleaning up before exit` mid-sweep
+(the last slot release shows a 204-token task) and the client then had nothing to talk to; the board
+was cleaned afterwards (`pkill`, 8/8 blocks free). No cell produced a number, so **nothing from this
+sweep is reported**.
+
+What the next attempt changes, so the same failure cannot repeat silently: print each cell as it
+finishes (the tool currently prints at the end), keep a watchdog on the server's health between
+questions and abort the cell with the reason, and cut the cell size (8 questions x 6 cells with k=4
+contexts is ~16 minutes of prefill on this board - the sweep should run 4 questions per cell and
+report incrementally).
