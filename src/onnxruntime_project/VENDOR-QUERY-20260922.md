@@ -1,4 +1,4 @@
-# 致 SpacemiT：ONNX Runtime 2.0.6 provider 的三项可复现问题（K3 / Bianbu 4.0.6）
+# 致 SpacemiT：ONNX Runtime 2.0.6 provider 的六项可复现问题（K3 / Bianbu 4.0.6）
 
 **环境**：K3 开发板（X100 cpu0-7 + A100 cpu8-15），Bianbu 4.0.6，kernel 6.18.3，ONNX Runtime
 `2.0.6`（deb：runtime `076d9e83…`、provider `d8fa3633…`；tarball：`93bb7560…`/`dcc95030…`），
@@ -87,6 +87,24 @@ dump 提前到分区阶段）？我们在崩溃前拿不到 `SPACEMIT_EP_DUMP_SU
 
 （另附：这两例的模型、改写脚本与全部探针都在证据目录 `model-alternatives/converter-r1/` 与
 `model-alternatives/converter-r2/` 下，可逐个复现。）
+
+## 问题 6：同进程多会话时，会话创建随机失败（同形状、同参数、前两轮正常）
+
+在一个进程内创建 N 个会话（我们的小型测试程序 `ort-two-session-pipeline` 的 `same` 模式，每个会话
+`SPACEMIT_EP_INTRA_THREAD_NUM|<8/N>`、`SPACEMIT_EP_INTER_THREAD_NUM|1`，8/N 个线程）时，**同一条命令行在
+连续多轮成功后随机失败于会话创建**：
+
+```
+SpacemiT EP init: Provider options key/value cannot be empty
+```
+
+当日两次，都是每形状第 3 轮、前两轮完全正常：`yolov8n 8x1`（前两轮 56.0/54.6 ms）与 `yolov8s 4x2`
+（前两轮 51.6/51.8 ms）；紧接着重跑同一条命令即成功。我们传给 provider 的键值对是固定的两条，
+没有空 key/value。**Q7**：这是 provider 侧已知的竞态吗？是否有诊断开关可以打印被拒绝的键值对？
+
+复现材料：`/root/k3-evidence/onnxruntime/multisession-20260922/run1/yolov8n.q-8x1-r3.log`、
+`run2/yolov8s.q-4x2-r3.log`，完整命令、模型 sha256 与板卡状态见同目录 `session.txt`
+（工具：`projects/onnxruntime/src/onnxruntime_project/tools/board-multisession-scaling.sh`）。
 
 ## 附：我们已做但无改观的方向（供参考，避免重复建议）
 

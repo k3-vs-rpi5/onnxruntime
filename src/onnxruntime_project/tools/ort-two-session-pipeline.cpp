@@ -24,7 +24,9 @@
 // Usage:
 //   ./pipeline <modelA.onnx> <modelB.onnx> <mode:serial|overlap> <iterations> <threadsA> <threadsB>
 //              [global-pool 0|1]
-//   ./pipeline <model.onnx> same <sessions> <iterations> <threads-each>
+//   ./pipeline <model.onnx> <model.onnx> same <sessions> <iterations> <threads-each>
+//     (the model path is passed twice because `same` mode reuses the two-session argument layout;
+//      measured 2026-09-22: the shorter form fails with `Load model same failed`)
 //
 // Per-stage thread counts matter: the split is what decides whether an overlapped pair beats running
 // the two models back to back, and stages do not scale alike (the SAM encoder loses 59 % from eight

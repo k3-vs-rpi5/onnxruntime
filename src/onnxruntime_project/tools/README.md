@@ -34,6 +34,20 @@ The first two landed scripts are the baseline harness:
   configuration banner into the cell record and asserts a single server process. Two servers survived
   their SIGTERM in round 7; had the port stayed busy, the next cell would have measured the previous
   configuration under a new name.
+* `make-ime-probe.py` + `board-ime-probe.sh` + `ime-probe-report.py` - the AI-cluster ceiling
+  instrument (`AI-CLUSTER-PEAK-20260922.md`). The host generator writes a pure-matrix **QDQ** probe
+  (the form the provider's own shipped models use, because ONNX's `MatMul` does not admit `int8`),
+  the board script runs the vendor's `perf_test` option set over three sizes and 1/2/4/8 threads with
+  three rounds each, a CPU-EP control, a per-node profile and an in-flight TCM sample that also maps
+  one block per compute thread, and the host tool turns the logs into the median table. Two probe
+  forms that failed first (int8 `MatMul`; constant activation) are recorded in the evidence rather
+  than deleted, and so is one sweep in which the 4096/1-thread row was bimodal.
+* `board-multisession-scaling.sh` - the throughput-rule check (`MULTI-SESSION-SCALING-20260922.md`):
+  `ort-two-session-pipeline`'s `same` mode at 1x8, 2x4, 4x2 and 8x1 on two detector models, three
+  rounds per shape, and one longer engagement run per shape sampled with `spacemit-tcm-smi`. Two
+  harness defects were found and fixed here (see the report): `setsid` may fork and make `$!` the
+  wrong pid, and the TCM table's PID column may name a *thread* of the workload rather than the
+  process, so the sampler matches any of the workload's thread ids.
 
 The board scripts run on the board and the host pushes them and pulls the logs. Results of the
 2026-09-21 rounds are in `../BASELINE*-20260921.md`, `../OPTIMISATION*-20260921.md` and

@@ -74,7 +74,11 @@ Seven questions, ordered by (value to the acceptance story) / (cost); the first 
 the last (G7) is kept open deliberately. Every one is an *instrument or a validation*, never a
 re-sweep of something §2 closed.
 
-### G1. Measure the AI cluster's own int8 ceiling, on this board (the denominator)
+### G1. Measure the AI cluster's own int8 ceiling, on this board (the denominator) - **done 2026-09-22**
+
+Result: `AI-CLUSTER-PEAK-20260922.md` (ceiling **2754 GOPS at eight threads**, 18.4 % of the quoted
+peak; one core 893 GOPS with one TCM block; one block per compute thread at 1/2/4/8). The text below
+is kept as the plan that was executed.
 
 *Question.* The roofline section compares YOLO's 912 GOPS against a **quoted ~15 TOPS** for the K3
 cluster and a **K1** `cpufp` number clock-scaled. What does *this* board's A100 cluster actually
@@ -95,7 +99,11 @@ different product). If the measured peak lands far below 15 TOPS, the "provider 
 conclusion gets stronger, not weaker; if it lands near it, the 6.1 % becomes the headline number for
 the vendor conversation.
 
-### G2. Does the multi-session rule hold beyond one small model?
+### G2. Does the multi-session rule hold beyond one small model? - **done 2026-09-22**
+
+Result: `MULTI-SESSION-SCALING-20260922.md` (`yolov8s` at `8x1` = **86.14 inf/s, +10.8 %** over the
+published 77.74; `4x2` lands within 0.4 % of it on both models; the rule generalises, and the same
+sweep produced vendor question 6 - a random session-creation failure).
 
 *Question.* The throughput rule (N sessions x 8/N threads) was established on `yolov8n` alone. The
 vendor's application applies the same shape to `yolov8s` and `yolov8m`.

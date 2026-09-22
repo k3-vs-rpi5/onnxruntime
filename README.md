@@ -330,6 +330,26 @@ package identity, and the documented entry points we are allowed to use.
   ceiling, measured on this board through this provider with the pure-matrix probe that was
   generated and never run. It ends with the decisions only the operator can make, and closes the
   three questions `PLAN.md` has carried since 2026-09-20.
+  `AI-CLUSTER-PEAK-20260922.md` executes the first item of that plan. A pure-matrix **QDQ** probe
+  (the form the provider's own models use - ONNX's `MatMul` refuses `int8`) was run through the
+  vendor's `perf_test` option set at 1/2/4/8 threads over three sizes, three rounds each. The
+  measured ceiling is **2754 GOPS (2.75 TOPS) at eight threads** - 18.4 % of the quoted ~15 TOPS and
+  75 % of the K1 `cpufp` figure clock-scaled to this board - with **one TCM block per compute
+  thread** (1/2/4/8) and the workload's pid named in every sample; one core alone reaches 893 GOPS,
+  1.94x the clock-scaled K1 per-core number. The largest probe is *slower per FLOP* than the middle
+  one, so the QDQ path is limited by data movement rather than matrix throughput, and `yolov8n`'s
+  912 GOPS end-to-end is 33 % of what the provider itself delivers on pure matrix work. Two probe
+  forms that failed first (int8 `MatMul`, refused by the runtime's checker; constant activation,
+  which segfaults on both EPs) are kept in the evidence rather than deleted.
+  `MULTI-SESSION-SCALING-20260922.md` is the second item of that plan: the throughput rule
+  (`N` sessions x `8/N` threads) was established on `yolov8n` alone, so `yolov8s` was put through
+  the same four shapes. It generalises - **`8x1` = 86.14 inf/s, +10.8 %** over the published 77.74,
+  with `8x1` beating `1x8` by the same +42 % as on the small model, and the vendor's own `4x2`
+  decomposition landing within **0.4 %** of their published total on both models. The same sweep
+  also produced two instrument corrections (`setsid` makes `$!` the wrapper's pid; the TCM table's
+  PID column can name a thread of the workload) and vendor question 6: session creation failed
+  twice at random, after clean rounds of the identical command, with `SpacemiT EP init: Provider
+  options key/value cannot be empty`.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

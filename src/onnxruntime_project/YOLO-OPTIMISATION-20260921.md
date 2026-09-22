@@ -217,9 +217,14 @@ So the two statements are both true and they are different statements:
   would have to come from, and it is inside the closed provider or in how the model's graph is
   executed - the two places this project cannot reach without a contract change or vendor work.
 
-The one measurement still missing to make that claim airtight is a per-board IME micro-benchmark
-(`cpufp` or equivalent on cpu8-15 through the documented runtime), which would replace the scaled K1
-figure with a measured K3 denominator.
+The one measurement that was still missing to make that claim airtight was a per-board matrix
+micro-benchmark on cpu8-15 through the documented runtime, to replace the scaled K1 figure with a
+measured K3 denominator. **It was taken on 2026-09-22** (`AI-CLUSTER-PEAK-20260922.md`): a pure-matrix
+QDQ probe reaches **2754 GOPS at eight threads** - 18.4 % of the quoted ~15 TOPS and 75 % of the
+clock-scaled K1 figure - with one TCM block per compute thread and the workload's pid named in the
+table, and one core alone reaches 893 GOPS, 1.94x the clock-scaled K1 per-core number. So the
+denominator in the tables above is now measured here, and `yolov8n`'s 912 GOPS end-to-end is 33 % of
+what the provider itself delivers on a pure matrix graph.
 
 ## 8. Full operator census across the family
 
