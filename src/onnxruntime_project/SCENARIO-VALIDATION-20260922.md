@@ -12,6 +12,16 @@
 > photoview recorded as host-side or unusable on this board) and the **lean rules** that keep this a
 > scenario-level acceptance scheme rather than a framework - plus a one-screen **acceptance card**
 > per new scenario (fixture / pipeline / metrics / oracle / pass-fail / evidence / limits).
+>
+> **Third addition (same day, after the operator's review)**: the programme also carries **§8, the
+> scenario-only effects registry** - ten measured pairs where a point is invisible or negative in a
+> single-shape measurement and decisive in a scenario (multi-session 8x1, VLM encoder width,
+> pipeline splits, speculative decoding, the serial floor, prefill batching, the X100's real role,
+> stage balance, the 40-50 % non-matrix share, TCM sharing) - and the **seven acceptance rules** that
+> capture them, of which three matter most: shape is part of the claim, two stages means a matrix
+> never a single number, and every card must carry a negative control. §9 records the operator's
+> decisions (vendor reference apps and this workspace's own material approved for use; host-side x86
+> reference not required - comparison is against our own accepted baselines).
 
 Asked for by the operator on 2026-09-22, and written before the first scenario was run under it. A
 **scenario** here is a deployment shape with a workload and a stated acceptance basis - not a

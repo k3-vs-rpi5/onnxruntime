@@ -402,6 +402,15 @@ package identity, and the documented entry points we are allowed to use.
   existing tool before writing any, one fixture / one oracle / one page per scenario, and an
   **acceptance card** per scenario (fixture, pipeline, metrics, oracle, pass/fail with bands,
   evidence, known limits). Cards for S9-S13 are drafted; the scheme stays scenario-level.
+  `SCENARIO-VALIDATION-20260922.md` and the programme carry a third addition after the operator's
+  review: **§8, the scenario-only effects registry** - ten measured pairs in which a point is
+  invisible or negative in a single-shape measurement and decisive in a scenario (multi-session
+  `8x1` +39 %; VLM encoder 2+6 +27 % single-stream but -33 % in the service; per-pair pipeline
+  splits; speculation 0 % on novel text and 2.6x on repeated text; the serial 14.7 t/s floor;
+  prefill batching; the X100's real role; the 40-50 % non-matrix share; TCM sharing) - with the
+  **seven acceptance rules** that capture them, and the operator's decisions recorded: vendor
+  reference applications and this workspace's own fixtures are approved, a host-side x86 reference
+  is not needed (comparison is against our own accepted baselines).
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

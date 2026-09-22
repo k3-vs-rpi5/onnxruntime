@@ -301,3 +301,57 @@ The operator's caution - do not overbuild - is now a rule, not a preference:
 * pipeline: ASR via the vendor path, oracle `whisper.cpp` (board-built);
 * metrics: RTF, WER against the reference transcription;
 * pass/fail: RTF and WER both stated against the modelzoo rows and against whisper.cpp.
+
+## 8. The flaw the operator named: points that win only *in a scenario*
+
+The scheme above still had a hole: it judged each optimisation where it can be measured most easily -
+one model, one stream, one shape - and several of this project's real wins are **invisible or
+negative there** and only appear at scenario level. The registry below is the fix: every row is a
+measured pair (single-shape number, scenario number), and the acceptance rules that follow are what
+keep a scenario from being accepted on the wrong shape or rejected on the right one.
+
+| # | point | single-shape finding | scenario-level finding | source |
+|---|---|---|---|---|
+| P1 | multi-session throughput shape | 8x1 has 5.6x the latency of 1x8 (52.8 ms vs 9.41) | 8x1 = **146.62 inf/s vs 105.38 (+39 %)**; the vendor's own application ships 8 sessions x 1 thread | `MULTI-SESSION-SCALING-20260922.md`, vendor config |
+| P2 | VLM encoder width | single-stream composed optimum is encoder 2 + text 6, **+27 % over serial** | in the 4-slot service the same split is **-33 %**; encoder 8 + text 8 wins | `MODEL-ALTERNATIVES-20260922.md` §12 |
+| P3 | pipeline split | 4+4 on detect->pose gives 43.10 fps vs 27.76 serial (+55 %) | SAM prefers 6+2 (18.94 vs 15.20), i.e. **the split must be searched per pair**, and 8+8 is refused outright | §11 of the same report |
+| P4 | self-speculative decode | novel prose: 14.78 -> 14.80 t/s (**nothing**) | repetition-rich text: 14.46 -> **37.87 t/s (2.6x)**; the RAG/summary/meeting shapes are the repetition-rich ones | `llamacpp-2` article, llama.cpp freeze evidence |
+| P5 | serial decode | memory-bound floor: 1.47 GB/token at ~24.5 GB/s = ~14.7 t/s | any long-output scenario is bounded by this floor; a scenario claim that ignores it is not credible | `k3-evidence/llama.cpp/q6k-compact-pipeline-20260920/` |
+| P6 | prefill/batch | serial step 68 ms/token vs batch prefill 13.5 ms/token | long-context RAG / document QA gains ~5x on the prefill side; short chat does not | same |
+| P7 | X100 cluster | 97x slower on the same int8 graph (**never** a co-processor) | it is where a scenario's decode/pre/post work actually runs, with a measured 10-25 % interference budget | `YOLO-OPTIMISATION-20260921.md` §4 |
+| P8 | stage balance | OCR recogniser alone is 2.36 ms, detector 35.99 ms | in the pipeline the recogniser should be co-scheduled with the detector, not given equal cores | `MODEL-ALTERNATIVES-20260922.md` §8 |
+| P9 | non-matrix operators (40-50 % of a YOLO frame) | no single operator exceeds 6 %, so single-op tuning looks pointless | the family-wide structural number is ~2x, and it is the only lever of that size | `YOLO-OPTIMISATION-20260921.md` §8 |
+| P10 | TCM partition | one model gets all 8 blocks and looks optimal | two stages pay: service -28 %/-32 % beside a detector, frame -14.6 % beside a service (**both sides always pay**) | `SCENARIO-SENSE-LANGUAGE-20260922.md`, `SCENARIO-EMBODIED-20260922.md` |
+
+**Acceptance rules that follow (these are the additions that make the scheme sound):**
+
+1. **Shape is part of the claim.** Every scenario card names its deployment rule (latency /
+   throughput / service) and is measured in that shape only; a latency-shape number may never
+   accept a throughput scenario or vice versa (P1, P2).
+2. **Two stages or two services means a matrix, never a single composed number** - each side alone,
+   both together, and the recovery control after the other side stops (P10; the S7/S8 pattern).
+3. **"No single-model gain" is not a rejection.** A point is judged at scenario level, but it must
+   still show a measurable delta against **our own accepted scenario baseline** - self-comparison,
+   which is the operator's decision of 2026-09-22 (no host-side x86 reference is required).
+4. **Every card carries one negative control**: a shape in which the point is *not* expected to
+   help (novel text for speculation, latency shape for 8x1). A scenario that cannot state its
+   negative control cannot be accepted.
+5. **Input/output shape is a first-class field**: prompt length, output length, repetition density,
+   streams, slots, batch. P4-P6 all flip on shape, so a card without them is unreadable.
+6. **Long-output scenarios must quote the serial floor** and declare the decode settings (P5, P6).
+7. **The X100 is accounted for, not ignored**: what part of the scenario runs there, and what
+   interference was measured (P7).
+
+## 9. Decisions resolved (2026-09-22, operator)
+
+| decision | resolution |
+|---|---|
+| D1 install vendor reference applications on the board | **approved** (zenow / llm-sdk first; seewise / yumeet later if the scenario needs them) |
+| D2 embodied decision budget and `vla/` scope | **approved** - the scenario sets its own latency budget, and the `vla/` models may be used |
+| D3 host-side x86 reference implementation | **not needed** - compare against our own accepted baselines (self-comparison) |
+| D4 fixtures may use this workspace's own reports | **approved** |
+
+Consequences: the scheme's L6 "reference" step now means *the vendor's own application where one
+exists, otherwise our own previous accepted baseline*; host-side references stay in the document only
+as a stated possibility that is not required. The work order is unchanged: scheme v2 (rules above) ->
+S12 -> S9 -> S11 -> S10 -> (optional) S13.
