@@ -22,7 +22,12 @@
 //       -I<onnxruntime headers> -L<onnxruntime lib> -lonnxruntime -ldl -lpthread
 //
 // Usage:
-//   ./pipeline <modelA.onnx> <modelB.onnx> <mode:serial|overlap> <iterations> <intra-threads> [global-pool 0|1]
+//   ./pipeline <modelA.onnx> <modelB.onnx> <mode:serial|overlap> <iterations> <threadsA> <threadsB>
+//              [global-pool 0|1]
+//
+// Per-stage thread counts matter: the split is what decides whether an overlapped pair beats running
+// the two models back to back, and stages do not scale alike (the SAM encoder loses 59 % from eight
+// threads to four while its decoder loses 8 %), so the split has to be searched, not assumed.
 
 #include <onnxruntime_cxx_api.h>
 
@@ -143,14 +148,15 @@ static double time_stage(Stage &stage, int iterations) {
 
 int main(int argc, char **argv) {
     if (argc < 6) {
-        std::cerr << "usage: pipeline <modelA> <modelB> <serial|overlap> <iterations> <intra> "
-                     "[global-pool 0|1]\n";
+        std::cerr << "usage: pipeline <modelA> <modelB> <serial|overlap> <iterations> <threadsA> "
+                     "<threadsB> [global-pool 0|1]\n";
         return 2;
     }
     const std::string model_a = argv[1], model_b = argv[2], mode = argv[3];
     const int iterations = std::stoi(argv[4]);
-    const int intra = std::stoi(argv[5]);
-    const int global_pool = argc > 6 ? std::stoi(argv[6]) : 0;
+    const int threads_a = std::stoi(argv[5]);
+    const int threads_b = std::stoi(argv[6]);
+    const int global_pool = argc > 7 ? std::stoi(argv[7]) : 0;
 
     void *handle = dlopen("libspacemit_ep.so", RTLD_NOW);
     if (!handle) {
@@ -165,18 +171,20 @@ int main(int argc, char **argv) {
     }
     g_env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "pipeline");
 
-    std::vector<std::string> options_a = {"SPACEMIT_EP_INTRA_THREAD_NUM|" + std::to_string(intra),
+    std::vector<std::string> options_a = {"SPACEMIT_EP_INTRA_THREAD_NUM|" + std::to_string(threads_a),
                                           "SPACEMIT_EP_INTER_THREAD_NUM|1"};
-    std::vector<std::string> options_b = options_a;
+    std::vector<std::string> options_b = {
+        "SPACEMIT_EP_INTRA_THREAD_NUM|" + std::to_string(threads_b),
+        "SPACEMIT_EP_INTER_THREAD_NUM|1"};
     if (global_pool) {
         options_a.push_back("SPACEMIT_EP_USE_GLOBAL_INTRA_THREAD|1");
         options_b.push_back("SPACEMIT_EP_USE_GLOBAL_INTRA_THREAD|1");
     }
-    Stage stage_a(model_a, options_a, "A", intra);
-    Stage stage_b(model_b, options_b, "B", intra);
+    Stage stage_a(model_a, options_a, "A", threads_a);
+    Stage stage_b(model_b, options_b, "B", threads_b);
 
-    std::cout << "mode=" << mode << " iterations=" << iterations << " intra=" << intra
-              << " global_pool=" << global_pool << "\n";
+    std::cout << "mode=" << mode << " iterations=" << iterations << " threadsA=" << threads_a
+              << " threadsB=" << threads_b << " global_pool=" << global_pool << "\n";
     if (mode == "serial") {
         double a = time_stage(stage_a, iterations);
         double b = time_stage(stage_b, iterations);

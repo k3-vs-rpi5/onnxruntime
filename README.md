@@ -290,6 +290,13 @@ package identity, and the documented entry points we are allowed to use.
   running the two models alternately at 8 cores** - so the earlier "one process, stages
   serialised" rule becomes **one process, two sessions, cores 4+4, stages overlapped**. TCM
   sampled during the run shows the eight blocks split between two thread groups, four each.
+  Section 11.1 then searches the split instead of assuming it, on the SAM pair whose stages
+  scale very differently (encoder loses 59 % from 8 threads to 4, decoder 8 %): 4+4 gives
+  15.20 fps, 5+3 16.64, **6+2 18.94**, 7+1 16.32 - the optimum sits on the edge where the
+  encoder is still the bottleneck, and one more core for it hands the bottleneck to the
+  decoder and costs 14 %. Against the best non-pipeline shape (two processes alternating at
+  eight cores, 14.43 fps) the searched split is **+31 %**; against serialising the same
+  in-process pair, +81 %.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

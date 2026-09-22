@@ -327,3 +327,31 @@ shape from a `TypeInfo` temporary and got rank 0, and its second version wrapped
 was local to the constructor - `CreateTensor` does not copy - so the first `Run` read freed memory and
 segfaulted. Both were found by printing what the code saw rather than by reasoning about the provider,
 which is the order section 5.0 prescribes.
+
+### 11.1 The split has to be searched, not assumed - and it follows thread scaling, not stage cost
+
+The detect→pose pair is 1.6:1 in cost, and 4 + 4 was simply the split the provider accepts. The SAM pair
+is a better teacher: `mobilesam_encoder_tiny` loses 59 % of its speed going from eight threads to four
+(40.304 -> 63.942 ms) while `mobilesam_decoder` loses 8 % (28.983 -> 31.318 ms), so the two stages scale
+very differently and the split should follow that rather than the cost ratio. The harness was extended
+to take a thread count per stage and the split searched:
+
+| shape (encoder + decoder cores) | encoder | decoder | frame | throughput |
+|---|---|---|---|---|
+| serial 4 + 4 (in process) | 64.561 ms | 31.240 ms | 95.80 ms | 10.44 fps |
+| overlap 4 + 4 | 65.811 ms | 36.562 ms | 65.81 ms | 15.20 fps |
+| overlap 5 + 3 | 60.109 ms | 39.340 ms | 60.11 ms | 16.64 fps |
+| **overlap 6 + 2** | 52.798 ms | 43.519 ms | **52.80 ms** | **18.94 fps** |
+| overlap 7 + 1 | 44.806 ms | 61.260 ms | 61.26 ms | 16.32 fps |
+| two processes, one model each, alternately at 8 cores (derived) | 40.304 ms | 28.983 ms | 69.29 ms | 14.43 fps |
+
+The mechanism is visible in the table: the encoder keeps gaining from cores (65.8 -> 52.8 -> 44.8 ms as
+it goes 4 -> 6 -> 7) while the decoder loses them badly past two (36.6 -> 43.5 -> 61.3 ms), so the
+optimum sits **on the edge where the encoder is still the bottleneck** - 6 + 2 gives 18.94 fps, and one
+more core for the encoder turns the decoder into the bottleneck and costs 14 % instead. Against the
+best non-pipeline shape this project knows (two processes alternating at eight cores, 14.43 fps), the
+searched split is **+31 %**; against serialising the same in-process pair, **+81 %**.
+
+So the refined deployment rule is: **one process, one session per model, stages overlapped, and the
+core split searched rather than assumed** - the split that wins is the one that leaves the
+strongest-scaling stage one core short of handing the bottleneck to its neighbour.
