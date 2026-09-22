@@ -616,3 +616,22 @@ above its 512-token context.
 
 Still to do for S9: the answer stage (LLM with citations, TTFT, citation correctness) and the vendor
 reference application (`zenow` / `llm-sdk`) over the same corpus.
+
+**S9 answer stage measured (stage 2/3).** 20 corpus-derived questions, top-3 retrieval, answers
+streamed from the board's `llama-server` on `MiniCPM5-2B-Q4_K_M` (the first attempt accidentally
+served the embedding model as the LLM and is recorded as a mistake, not repeated):
+
+| quantity | value |
+|---|---|
+| TTFT median / P90 | **2,226 ms / 3,887 ms** |
+| total median (96 tokens) | **9,363 ms** |
+| citation correct (cited the chunk the question came from) | **16/20** |
+| non-empty answers | 20/20 |
+
+The four failures are informative rather than fatal: two answers cited `[4]` when only three sources
+were supplied - a model inventing citation indices is a failure mode the card must score, not hide -
+and two cited a genuine but different source. Non-empty answers in all 20 cases means the pipeline
+never silently produced nothing, which was the VLM lesson from earlier rounds.
+
+Stage 2/3 closed for the pipeline under test; what remains for S9 is stage 3/3, the vendor reference
+application (`zenow` / `llm-sdk`, installs approved) over the same sealed corpus.
