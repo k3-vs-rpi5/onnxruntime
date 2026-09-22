@@ -212,7 +212,13 @@ context, keep our own A/B as the acceptance instrument, and say so (already the 
 *Recommendation.* Demote permanently unless a customer deliverable depends on the published decode
 row; do not re-image for it.
 
-### G7 (kept open, not priced). `/dev/tcm_sync_mem`
+### G7. `/dev/tcm_sync_mem` - **answered and closed 2026-09-22**
+
+Result: `TCM-SYNC-MEM-20260922.md`. It is a second, optional TCM resource for the Spine runtime's
+sync/cache pool (`libspine_tcm.so`'s `tcm_sync_mem_*`), not the compute TCM; the K3 BSP kernel does
+not implement it (branch head included), and SpacemiT's own forum answer says to ignore it - the
+compute TCM is always opened and used, and "this `sync_mem` TCM does not affect performance much".
+No provisioning change is proposed.
 
 Every provider run logs that it cannot open `/dev/tcm_sync_mem` and falls back to heap barriers; the
 device node does not exist on this board (only `/dev/tcm` does), and it is referenced by the vendor's

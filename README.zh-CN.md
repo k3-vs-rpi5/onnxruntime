@@ -232,6 +232,11 @@ AI 工作的 ONNX 侧。两个产物必须放在一起看：承载 SpacemiT 构�
   立刻回到单独运行区间（内部对照）。最后 `scripts/build.sh` 与 `scripts/run.sh` 已交付并实测——交叉
   编译产物与第 11 轮手工构建**逐位一致**，经公共入口重跑上限测量也复现了已封存数字——`project.yaml`
   因此改为 `scripts-delivered-exercised`。
+  随后按你的指示：**G7 已闭合**（`TCM-SYNC-MEM-20260922.md`——该节点是 Spine 运行时 sync/cache 池用的
+  第二块可选 TCM，K3 BSP 内核并未实现它，厂商在自家论坛明确表示"不太影响性能、可忽略"）；
+  **具身场景 S8 已实测**（`SCENARIO-EMBODIED-20260922.md`：检测→深度 单独 113.06 ms/帧、8.85 fps；
+  与 2 路 VLM 服务真正并发时帧率 -14.6 %、检测级 -3.4 倍、服务速率 -39~47 %）；
+  场景矩阵（`SCENARIO-VALIDATION-20260922.md`）现有 8 条并带数字。
   `src/onnxruntime` 未做任何修改。
 
 ## 工作区登记

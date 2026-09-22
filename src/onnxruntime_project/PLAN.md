@@ -49,9 +49,9 @@ Executed from `NEXT-ROUND-ANALYSIS-20260922.md`, in its order:
 | G2 | the multi-session rule on a second model | **done** - `MULTI-SESSION-SCALING-20260922.md` |
 | G4 | the VLM acceptance basis | **done** - `VLM-ACCEPTANCE-BASIS-20260922.md` |
 | G3 | make the multi-stream comparison like-for-like | open - three priced options, the strongest needs operator approval (D4) |
-| G5 | one composed embodied/perception scenario under the three deployment rules | next, pending the scenario choice (D6) |
+| G5 | composed embodied/perception scenarios under the three deployment rules | **two done** - S7 detector beside the VLM service (`SCENARIO-SENSE-LANGUAGE-20260922.md`), S8 detector->depth plus the language service (`SCENARIO-EMBODIED-20260922.md`); the scheme is `SCENARIO-VALIDATION-20260922.md` |
 | G6 | the LLM decode rows: pursue or demote | proposal: demote to context (D8) |
-| G7 | `/dev/tcm_sync_mem` | kept open: a board-provisioning question with a number attached |
+| G7 | `/dev/tcm_sync_mem` | **closed** - an optional second TCM for the Spine sync/cache pool, not implemented by the K3 BSP and declared low-impact by the vendor (`TCM-SYNC-MEM-20260922.md`) |
 
 ## S1. The two public scripts - delivered 2026-09-22
 

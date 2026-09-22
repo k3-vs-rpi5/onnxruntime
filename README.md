@@ -375,6 +375,13 @@ package identity, and the documented entry points we are allowed to use.
   exercised - the cross-build is **bit-identical** to the harness round 11 built by hand, and a
   fresh ceiling run through the public entry point reproduced the sealed numbers - so `project.yaml`
   now records `scripts-delivered-exercised`.
+  On the operator's next instructions: **G7 is closed** (`TCM-SYNC-MEM-20260922.md` - the node is a
+  second, optional TCM for the Spine runtime's sync/cache pool, not implemented by the K3 BSP and
+  declared low-impact by SpacemiT on their own forum), the **embodied scenario S8** was measured
+  (`SCENARIO-EMBODIED-20260922.md`: detector->depth alone 113.06 ms/frame at 8.85 fps, and with the
+  2-request VLM service genuinely overlapped the frame loses 14.6 %, the detector stage 3.4x and the
+  service 39-47 % of its served rate), and the scenario matrix in `SCENARIO-VALIDATION-20260922.md`
+  now carries eight entries with their numbers.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

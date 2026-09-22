@@ -56,6 +56,10 @@ The first two landed scripts are the baseline harness:
   (`SCENARIO-VALIDATION-20260922.md`, `SCENARIO-SENSE-LANGUAGE-20260922.md`): a detector beside the
   4-slot VLM service, sized so the detector's run ends *inside* the client window, which is what
   makes its average a contention number rather than a blend.
+* `board-scenario-embodied.sh` - scenario S8 (`SCENARIO-EMBODIED-20260922.md`): detector->depth in
+  one process (serial vs overlapped, TCM sampled), and then the same pipeline running *through* the
+  VLM client window. The first version called the synchronous runner and measured a sequence instead
+  of an overlap; the corrected cell and the invalid ones are both in the evidence.
 
 The board scripts run on the board and the host pushes them and pulls the logs. Results of the
 2026-09-21 rounds are in `../BASELINE*-20260921.md`, `../OPTIMISATION*-20260921.md` and

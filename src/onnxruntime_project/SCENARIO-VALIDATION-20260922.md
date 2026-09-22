@@ -72,7 +72,7 @@ One directory under `/root/k3-evidence/onnxruntime/<scenario>-<date>/`, with:
 | S5 | OCR pipeline (det + rec) | C3 | measured | contention-resolved; TCM explains the spread |
 | S6 | VLM 4-slot service | C4 | measured | 47.91 t/s cold-image 4x32 tokens; 68.65 first round and ~85.8 cached rounds at 4x64 tokens |
 | S7 | **perception beside the VLM service** | C5 | measured 2026-09-22 - `SCENARIO-SENSE-LANGUAGE-20260922.md` | VLM cold-image round -27.7 %, cached rounds -31.9 %, detector +115 % latency; the last round (detector finished) returns to the baseline to the digit |
-| S8 | embodied stack with depth/pose + language | C5 | **next** - needs a scenario decision (D6) and the depth/pose candidates already on the board |
+| S8 | embodied stack with depth + language | C5 | measured 2026-09-22 - `SCENARIO-EMBODIED-20260922.md` | perception alone 113.06 ms/frame (8.85 fps, overlap +12.7 % over serial); with the 2-request service truly overlapped: frame -14.6 %, detector stage +236 %, service -39.4 % / -46.7 % |
 
 ## 5. What a completed scenario claim looks like
 
