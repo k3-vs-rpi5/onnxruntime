@@ -245,6 +245,11 @@ AI 工作的 ONNX 侧。两个产物必须放在一起看：承载 SpacemiT 构�
   `llama-embedding` 与 `--embeddings`，归档里有 `embed/`、`rerank/`、**`vla/`** 家族，以及可当参照
   实现的厂商应用（`zenow` 0.0.184、`llm-sdk` 0.0.39、`seewise` 1.0.16、`yumeet` 1.0.1）。本轮未写代码，
   文档末尾列出需要你拍板的四项。
+  按你的第二点补充：同一份方案里增加了 **GitHub 开源轻量候选**调研（`sqlite-vec`、`simonw/llm`、
+  `hnswlib`、`USearch`、`imagehash`、`imagededup`、`tesseract`、`whisper.cpp`、`clip-retrieval`、
+  `lerobot`、`PySceneDetect`；`faiss`/`tantivy`/`meilisearch`/`photoview` 记为仅主机参考或本板不可用），
+  并明确**轻量纪律**：能复用开源就不自写、每场景"一套夹具 / 一个参照 / 一页验收卡"；同时给出
+  **场景级验收卡**（夹具、流水线、指标、参照、通过带、证据、已知边界）S9–S13 草稿。方案保持场景级，不建框架。
   `src/onnxruntime` 未做任何修改。
 
 ## 工作区登记

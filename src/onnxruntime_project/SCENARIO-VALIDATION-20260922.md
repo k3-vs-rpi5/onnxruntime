@@ -5,6 +5,13 @@
 > maturity levels) and the next scenario definitions (S9 RAG knowledge base, S10 embodied decision,
 > S11 album, S12 document ingestion, S13 audio) are in **`SCENARIO-PROGRAMME-20260922.md`**. That
 > document is the programme; this one remains the scheme that every scenario is measured under.
+>
+> **Same day, second addition**: the programme also carries a survey of **GitHub open-source
+> lightweight candidates** (sqlite-vec, simonw/llm, hnswlib, USearch, imagehash, imagededup,
+> tesseract, whisper.cpp, clip-retrieval, lerobot, PySceneDetect; with faiss/tantivy/meilisearch/
+> photoview recorded as host-side or unusable on this board) and the **lean rules** that keep this a
+> scenario-level acceptance scheme rather than a framework - plus a one-screen **acceptance card**
+> per new scenario (fixture / pipeline / metrics / oracle / pass-fail / evidence / limits).
 
 Asked for by the operator on 2026-09-22, and written before the first scenario was run under it. A
 **scenario** here is a deployment shape with a workload and a stated acceptance basis - not a

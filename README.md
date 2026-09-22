@@ -393,6 +393,15 @@ package identity, and the documented entry points we are allowed to use.
   the archive's `embed/`, `rerank/` and **`vla/`** families, and the vendor applications that can
   serve as oracles (`zenow` 0.0.184, `llm-sdk` 0.0.39, `seewise` 1.0.16, `yumeet` 1.0.1). No code
   was written; the document ends with the four decisions it needs from the operator.
+  Following the operator's second instruction, the same document now also surveys **GitHub
+  open-source lightweight candidates** rather than only vendor material - `sqlite-vec`,
+  `simonw/llm`, `hnswlib`, `USearch`, `imagehash`, `imagededup`, `tesseract`, `whisper.cpp`,
+  `clip-retrieval`, `lerobot`, `PySceneDetect` (Apache/MIT/BSD, all C or Python, all board- or
+  host-buildable), with `faiss`/`tantivy`/`meilisearch`/`photoview` recorded as host-side or
+  unusable where no Rust/Go toolchain and no ML server fit - and fixes the **lean rules**: reuse an
+  existing tool before writing any, one fixture / one oracle / one page per scenario, and an
+  **acceptance card** per scenario (fixture, pipeline, metrics, oracle, pass/fail with bands,
+  evidence, known limits). Cards for S9-S13 are drafted; the scheme stays scenario-level.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

@@ -192,3 +192,112 @@ are already public in intent, but they are our own material).
 
 Explicitly **not** in this round: no code, no board runs, no installs, no fixture generation, no
 changes to the frozen stages.
+
+## 6. GitHub open-source lightweight candidates (not only vendor material)
+
+The operator's second instruction: look beyond the vendor's own documentation and applications, and
+keep it light. Every candidate below was checked on GitHub on 2026-09-22 (language, licence, last
+push); "portable" means it is pure Python, or C/C++ that the board's own `cmake`/`g++` can build -
+the board has no Rust or Go toolchain by default, which is what rules the heavier stacks out.
+
+| scenario | candidate | what it gives | licence / language | verdict |
+|---|---|---|---|---|
+| S9 RAG | **`asg017/sqlite-vec`** | vector index as a SQLite extension; brute-force + ANN; tiny | Apache-2.0 / C | **primary index** - single C file, builds on the board, no service |
+| S9 RAG | **`simonw/llm`** | CLI: `embed-multi` into SQLite, prompt templates, plugins; scriptable, testable | Apache-2.0 / Python | **primary glue + oracle harness**: the whole RAG pipeline becomes a reproducible CLI |
+| S9 RAG | `nmslib/hnswlib` | header-only HNSW index | Apache-2.0 / C++ | alternative index if sqlite-vec's brute force is too slow at 10^5 chunks |
+| S9 RAG | `unum-cloud/USearch` | compact ANN index, C++ with bindings | Apache-2.0 / C++ | reserve |
+| S9 RAG | `facebookresearch/faiss` | the reference ANN library | MIT / C++ | **host-side reference** for recall@k, not for the board (heavy build) |
+| S9/S12 | `tesseract-ocr/tesseract` | classic OCR engine | Apache-2.0 / C++ | independent OCR oracle for the CER/WER gate, board-buildable |
+| S12 ingestion | `docling-project/docling` | document -> structured text/markdown | MIT / Python | moderate weight (torch-based models optional); use only if PDF layout fidelity must be validated, else `pymupdf`-class parsing + our PP-OCR |
+| S11 album | `JohannesBuchner/imagehash` | perceptual hashes for duplicate detection | BSD-2 / pure Python | **duplicate gate** - trivially portable and exactly the right instrument |
+| S11 album | `idealo/imagededup` | CNN + hashing duplicate detection, evaluation helpers | Apache-2.0 / Python | reference implementation for the duplicate gate (host side) |
+| S11 album | `photoview/photoview` | self-hosted photo library (Go, web UI) | AGPL-3.0 / Go | **not usable on the board** (no Go toolchain, no e2e ML), recorded as "no oracle"; our album scenario stays algorithmic (clustering + search), judged by NMI/top-k |
+| S11 album | `jmathai/elodie` | EXIF-based organiser, no ML | Apache-2.0 / Python | only if the scenario needs an EXIF/metadata baseline |
+| S10 embodied | `huggingface/lerobot` | policy training/eval harness | Apache-2.0 / Python+torch | host-side reference only; board-side stays with the vendor `vla/` models |
+| S10 embodied | `Breakthrough/PySceneDetect` | shot/scene segmentation | BSD-3 / Python | useful for the video variant of the scene generator, not the decision gate |
+| S13 audio | **`ggml-org/whisper.cpp`** | standalone ASR, C++, no Python | MIT / C++ | **independent ASR oracle** for yumeet/sensevoice comparisons; board-buildable |
+| search (S9/S11) | `quickwit-oss/tantivy`, `meilisearch/meilisearch` | lexical BM25 / search service | MIT / NOASSERTION, Rust | **excluded from the board** (no Rust toolchain); they are the reason a hybrid lexical+vector baseline is noted but not planned |
+
+Two conclusions from the survey. First, the **board-side stack can stay tiny**: `sqlite-vec` +
+`simonw/llm` + `llama.cpp` embedding/reranking covers S9/S12, `imagehash` covers the S11 duplicate
+gate, `whisper.cpp` covers S13 - all Apache/MIT/BSD, all C or Python. Second, the heavier or
+non-portable candidates are not "to do later"; they are recorded as **unusable on this board**, and
+where they would have been the only oracle (photoview/immich-class album servers), the scenario is
+declared oracle-less and judged against its own labelled fixture instead.
+
+## 7. Lean rules, and what a scenario-level acceptance actually looks like
+
+The operator's caution - do not overbuild - is now a rule, not a preference:
+
+1. **Reuse before build.** A scenario adds code only for the part no cited OSS or vendor tool
+   provides; the preferred pipeline is a shell script that calls `llm`, `sqlite-vec`, `whisper.cpp`,
+   `llama-server` and our existing instruments.
+2. **One fixture, one oracle, one page per scenario.** No fixture programme, no framework, no
+   abstract layers.
+3. **A scenario is accepted or rejected on its card**, not in prose.
+
+**Acceptance card template** (the scenario-level artefact; each card is one screen):
+
+    scenario / class / maturity
+    fixture        (what, size, digest, seed)
+    pipeline       (stages and the tool used for each)
+    metrics        (speed: which statistic, n; quality: which gate)
+    oracle         (implementation + how its output is compared)  [or: no oracle, why]
+    pass/fail      (numbers with bands, and what invalidates a run)
+    evidence       (directory, digest registry, self-check)
+    known limits   (what this card does not claim)
+
+### S9 card (draft)
+
+* fixture: this workspace's reports + evidence READMEs as the corpus (sealed by digest), 50
+  question/answer pairs written by us, plus the scanned-page fixture shared with S12;
+* pipeline: `llm embed-multi` (BGE-Small-Zh GGUF via `llama.cpp`) -> `sqlite-vec` index -> top-k ->
+  optional `Qwen3-Reranker-0.6B` -> answer with `llama-server`, citations required;
+* metrics: parse and vectorise speed per document; recall@1/5/10; answer latency (TTFT + total);
+  citation correctness and faithfulness rubric;
+* oracle: **host-side same-model embeddings** for recall (x86 CPU), and the vendor `zenow`/`llm-sdk`
+  application run on the same corpus where the operator approves the install;
+* pass/fail: recall@5 no worse than the host reference minus the measured band; every answer cites a
+  retrieved chunk whose text contains the answer span; a run with TCM not 8/8 at start is invalid;
+* evidence: `k3-evidence/onnxruntime/s9-rag-<date>/`.
+
+### S10 card (draft)
+
+* fixture: 100 generated scenes with ground truth (object identity/position/target), generator seed
+  and digest sealed;
+* pipeline: detector -> depth -> VLM ask -> decision rule; the `vla/` policy models are an *option*
+  recorded, not assumed;
+* metrics: decision accuracy, end-to-end decision latency against a budget the operator sets, stage
+  costs inside the loop (we already know the sharing price from S7/S8);
+* oracle: the ground truth itself, plus a host-side reference pipeline using the same models;
+* pass/fail: decision accuracy >= the reference minus band, and latency within budget, both at
+  least 3 repeats; wrong answers are a failure class of their own (new taxonomy row).
+
+### S11 card (draft)
+
+* fixture: 1,000 images in known groups with planted duplicates (our frames plus generated
+  variants), sealed;
+* pipeline: image embeddings (MobileCLIP2-S3 / siglip2) -> `sqlite-vec` -> clustering (numpy
+  agglomerative) -> `imagehash` duplicate pass -> text query search;
+* metrics: cluster purity/NMI, duplicate precision/recall, search top-k, build time per 1,000;
+* oracle: host-side reference with the same embeddings (recall/NMI); `imagededup` host-side for the
+  duplicate gate; **no server-class oracle available** (photoview excluded, see §6);
+* pass/fail: NMI within band of the host reference; duplicate recall >= 0.95 with precision >= 0.90
+  on the planted set; a card that cannot state its band is not accepted.
+
+### S12 card (draft)
+
+* fixture: 30 pages (10 printed, 10 scanned, 10 tables), reference transcriptions sealed;
+* pipeline: PDF/scan -> parse -> our PP-OCRv6 -> text; `tesseract` as the independent engine;
+* metrics: CER/WER per page class, pages/minute, structure-sampling score;
+* oracle: `tesseract` (and `docling` only if layout fidelity becomes the question);
+* pass/fail: CER within band of the tesseract reference on printed pages, and a stated (not
+  assumed) gap on scanned ones.
+
+### S13 card (draft, optional)
+
+* fixture: the vendor's own audio samples from the modelzoo table (`001_zh_daily_weather.wav`,
+  `004_zh_selling_sausages.wav`), sealed;
+* pipeline: ASR via the vendor path, oracle `whisper.cpp` (board-built);
+* metrics: RTF, WER against the reference transcription;
+* pass/fail: RTF and WER both stated against the modelzoo rows and against whisper.cpp.
