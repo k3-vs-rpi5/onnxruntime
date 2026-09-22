@@ -355,3 +355,33 @@ Consequences: the scheme's L6 "reference" step now means *the vendor's own appli
 exists, otherwise our own previous accepted baseline*; host-side references stay in the document only
 as a stated possibility that is not required. The work order is unchanged: scheme v2 (rules above) ->
 S12 -> S9 -> S11 -> S10 -> (optional) S13.
+
+## 10. Execution log
+
+**2026-09-22, operator: "批准，全量开展."** The programme is now in execution, in the order §9 sets.
+Each scenario is closed by its acceptance card, and each step keeps the same discipline as every
+other round here: host-side tooling, board runs through `board.sh` or `scripts/run.sh`, raw logs
+sealed under `/root/k3-evidence/onnxruntime/<scenario>-<date>/` with a per-file digest registry and a
+self-check, and no report written as a side effect of a run.
+
+Standing decisions in force for all five scenarios: vendor reference applications may be installed
+(`zenow`, `llm-sdk`, later `seewise`/`yumeet`); this workspace's own reports may serve as corpus;
+`vla/` models and an operator-set decision budget are in scope for S10; acceptance is by
+**self-comparison against our own accepted baselines** (no host-side x86 reference).
+
+Immediate steps, in order:
+
+1. **S12** - fixture first (30 pages: printed / scanned / tables, reference transcriptions sealed),
+   then ingestion through our PP-OCRv6 pair with `tesseract` as the independent engine, then the card
+   with CER/WER per page class and pages/minute.
+2. **S9** - corpus = this workspace's reports and evidence READMEs (sealed by digest); fixtures = 50
+   question/answer pairs; pipeline = `llm embed-multi` (BGE-Small-Zh) -> `sqlite-vec` -> optional
+   `Qwen3-Reranker-0.6B` -> `llama-server` answers with citations; card = parse/vectorise speed,
+   recall@k, TTFT, citation correctness; vendor `zenow` / `llm-sdk` as the reference application.
+3. **S11** - 1,000-image labelled fixture (groups + planted duplicates); embeddings -> `sqlite-vec` ->
+   clustering -> `imagehash` duplicate gate -> text search; card = NMI, duplicate P/R, top-k, build
+   time per 1,000 images.
+4. **S10** - 100 generated scenes with ground truth; detector -> depth -> VLM -> decision rule, with
+   the negative control (VLM-only) and the interference matrix from S7/S8 re-used; `vla/` models
+   optional inside the card's budget.
+5. **S13** - optional, only if time allows: vendor ASR path against a board-built `whisper.cpp`.
