@@ -321,6 +321,15 @@ package identity, and the documented entry points we are allowed to use.
   **not** transfer (32.06 t/s pinned against 47.88 for the measured best), because ASR
   streams an encoder beside an offline recogniser while the VLM runs encode-then-decode per
   slot. Both rules are now measured with the official allocation as the thing being tested.
+  `NEXT-ROUND-ANALYSIS-20260922.md` is the round the operator asked for *instead of* another sweep:
+  an analysis on **no board time** of what the next rounds should be. It fixes the position against
+  the vendor's own material (vision rows reproduced, the VLM encoder ahead, the multi-stream total
+  a bound rather than a like-for-like win, the LLM decode rows demoted to context), lists the
+  questions that are already closed so they are not re-opened, and prices the ones that are one
+  measurement away - the first being the number this project is missing: the AI cluster's own int8
+  ceiling, measured on this board through this provider with the pure-matrix probe that was
+  generated and never run. It ends with the decisions only the operator can make, and closes the
+  three questions `PLAN.md` has carried since 2026-09-20.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
