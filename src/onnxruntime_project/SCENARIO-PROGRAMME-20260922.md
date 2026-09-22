@@ -916,3 +916,21 @@ speed-up - and the deployment rule that follows is precise: **cache the prompt p
 really repeats** (same system text, same retrieved head), and read `prompt_n` per request to know
 which case a live service is in. The follow-up measurement is to re-run the sweep logging `prompt_n`
 per request, so each cell states whether it was a hit or a miss.
+
+**S9 answer-quality gate: the stricter prompt made it worse, and that is the finding.**
+
+Same 20 questions, same top-3 retrieval, but the prompt now forbids citing numbers that do not
+appear in the sources and requires `NOT_IN_SOURCES` when the answer is absent:
+
+| run | citation correct | TTFT median | total median | out-of-range citations |
+|---|---|---|---|---|
+| first prompt | 16/20 | 2,226 ms | 9,363 ms | yes (e.g. `[4]` with three sources) |
+| **stricter contract** | **14/20** | 2,348 ms | 9,505 ms | **still yes** (`[4, 5, 6]` with three sources) |
+
+Two failures in one result: the instruction did not reduce invented indices, and the extra
+instruction text cost a little latency. The conclusion is a design rule rather than a complaint:
+**citation integrity cannot be prompted into a 2B model - it has to be enforced outside it.** The
+concrete options, in increasing cost: post-validate and strip citations whose index is outside the
+supplied range (a few lines, and it turns the metric from 14/20 into a *scored* contract), require a
+structured answer with a citation field validated against the source list, or move to a larger model
+and re-measure the same 20 questions. The gate stays open, with the failure mode now reproducible.

@@ -91,8 +91,11 @@ def main(argv):
         qv = embed_one(eport, question)
         ranked = sorted(range(len(rows)), key=lambda i: -cosine(qv, rows[i]["vector"]))[:top_k]
         sources = "\n".join(f"[{i + 1}] {rows[r]['text'][:280]}" for i, r in enumerate(ranked))
-        prompt = ("Answer the question using only the sources below. "
-                  "Cite every claim with its source number in square brackets.\n\n"
+        # Stricter contract than the first round: only the supplied indices may be cited, and an
+        # unanswerable question must say so. The first run cited [4] when three sources existed.
+        prompt = ("Answer using only the sources below. Cite with the source number in square "
+                  "brackets, and only numbers that appear below. If the sources do not contain the "
+                  "answer, reply exactly: NOT_IN_SOURCES.\n\n"
                   f"{sources}\n\nQuestion: {question}\nAnswer:")
         text, ttft, total, tokens = stream_answer(lport, prompt)
         cited = {int(m) for m in re.findall(r"\[(\d+)\]", text)}
