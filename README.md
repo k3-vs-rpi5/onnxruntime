@@ -350,6 +350,12 @@ package identity, and the documented entry points we are allowed to use.
   PID column can name a thread of the workload) and vendor question 6: session creation failed
   twice at random, after clean rounds of the identical command, with `SpacemiT EP init: Provider
   options key/value cannot be empty`.
+  `VLM-ACCEPTANCE-BASIS-20260922.md` is the third item: the contract that replaces the vendor's
+  unnamed VLM cell with **seven named statistics** (encoder-only latency, time to first token,
+  end-to-end, cache/per-new-frame cost, multi-slot aggregate, text decode, quality gate), the five
+  rules that follow from the ambiguity (the row is context, S1 is the only official-comparable
+  number, a claim names its statistic and cache state), and the procedure a change on this path must
+  pass. It adds no measurement; it fixes what "better" means before the next VLM round runs.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

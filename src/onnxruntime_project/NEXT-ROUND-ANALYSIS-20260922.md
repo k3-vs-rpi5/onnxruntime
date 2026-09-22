@@ -147,7 +147,10 @@ stands as a bound). What is not acceptable is continuing to quote it as if it we
 *Recommendation.* (2) now, (1) only if the operator wants the app result itself; (3) is the fallback
 for any report published before either runs.
 
-### G4. Write the VLM service acceptance basis (a contract, not a measurement)
+### G4. Write the VLM service acceptance basis (a contract, not a measurement) - **done 2026-09-22**
+
+Result: `VLM-ACCEPTANCE-BASIS-20260922.md` - the named statistics (S1-S7), the rules that follow, and
+the acceptance procedure for a change on this path.
 
 *Question.* The published VLM row has no named statistic (§7.2 of `METHOD-ALIGNMENT-20260921.md`),
 so R10 makes it an order-of-magnitude reference and leaves "what we hold ourselves to" undefined.
