@@ -256,18 +256,31 @@ int main(int argc, char **argv) {
 
         std::string text;
         for (const auto &b : boxes) {
-            auto rin = rec_input(img, b);
-            std::vector<int64_t> rec_shape{1, 3, 48, 320};
-            auto rec_in = Ort::Value::CreateTensor<float>(mem, rin.data(), rin.size(),
-                                                          rec_shape.data(), rec_shape.size());
-            const char *rec_in_names[] = {"x"};
-            const char *rec_out_names[] = {"fetch_name_0"};
-            auto rec_out = rec.Run(Ort::RunOptions{nullptr}, rec_in_names, &rec_in, 1,
-                                   rec_out_names, 1);
-            auto info = rec_out[0].GetTensorTypeAndShapeInfo();
-            auto shape = info.GetShape();
-            int T = static_cast<int>(shape[1]), C = static_cast<int>(shape[2]);
-            text += ctc_decode(rec_out[0].GetTensorData<float>(), T, C, dict);
+            // Long lines must be recognised in chunks: a 50-character line squeezed into one
+            // 320-wide crop has ~40 timesteps for 50 characters, and CTC alignment degrades into
+            // word-shaped approximations (measured: "baseline" -> "beshie"). PP-OCR's own practice
+            // is to cut the line into pieces whose aspect ratio stays near the model's 320/48.
+            int bh = std::max(1, b.y1 - b.y0), bw = std::max(1, b.x1 - b.x0);
+            const float max_aspect = 320.f / 48.f;
+            int chunks = std::max(1, static_cast<int>(std::ceil((bw / static_cast<float>(bh))
+                                                                / max_aspect)));
+            int chunk_w = std::max(1, (bw + chunks - 1) / chunks);
+            for (int k = 0; k < chunks; ++k) {
+                Box part{b.x0 + k * chunk_w, b.y0,
+                         std::min(b.x1, b.x0 + (k + 1) * chunk_w), b.y1};
+                auto rin = rec_input(img, part);
+                std::vector<int64_t> rec_shape{1, 3, 48, 320};
+                auto rec_in = Ort::Value::CreateTensor<float>(mem, rin.data(), rin.size(),
+                                                              rec_shape.data(), rec_shape.size());
+                const char *rec_in_names[] = {"x"};
+                const char *rec_out_names[] = {"fetch_name_0"};
+                auto rec_out = rec.Run(Ort::RunOptions{nullptr}, rec_in_names, &rec_in, 1,
+                                       rec_out_names, 1);
+                auto info = rec_out[0].GetTensorTypeAndShapeInfo();
+                auto shape = info.GetShape();
+                int T = static_cast<int>(shape[1]), C = static_cast<int>(shape[2]);
+                text += ctc_decode(rec_out[0].GetTensorData<float>(), T, C, dict);
+            }
             text += "\n";
         }
         auto t3 = std::chrono::steady_clock::now();

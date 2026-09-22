@@ -525,3 +525,38 @@ Leading hypotheses, in the order they will be tested (each a one-variable change
 The transcripts of this run are kept in the evidence package as **invalid** (they are a record of a
 wrong decode, not a result). The S12 card's own-chain column stays empty until one of the three is
 the cause and the printed class reads ~0, exactly as the fixture's self-check demands.
+
+### S12 own chain, third run: it works, and the numbers are in (band not yet met)
+
+The diagnosis took two variables, each measured on its own:
+
+1. **geometry was never the problem**: the detector returns **26 line boxes for 26 ground-truth
+   lines** on `printed-00`, and the per-line word counts already matched (2/6/8 against 2/7/8);
+2. **the recogniser was being starved of timesteps**: a ~50-character line squeezed into one 320-wide
+   crop has ~40 timesteps for ~50 characters, and CTC alignment degrades into word-shaped
+   approximations (`baseline` -> `beshie`). Cut into chunks with aspect near the model's 320/48, the
+   same line reads `block block baseline pipeline evidence barrier report`;
+3. the first chunked build added a right-edge overlap of one line-height and produced exactly the
+   artefact that overlap implies - duplicated characters at every boundary (`basaseline`,
+   `pipelinene`, `bariarrier`); removing the overlap removed them.
+
+**Measured, own chain (PP-OCRv6 tiny det+rec, SpacemiT EP, 4+4 threads, 30 pages):**
+
+| class | pages | own CER mean | own CER max | own WER mean | tesseract CER mean | verdict vs band |
+|---|---|---|---|---|---|---|
+| printed (negative control) | 10 | **0.0278** | 0.0401 | 0.2589 | **0.0000** | **band not met** (target <= 0.01) |
+| scanned | 10 | **0.0235** | 0.0332 | 0.2153 | 0.0020 | above tesseract's 1.5x band |
+| tables | 10 | **0.0053** | 0.0107 | 0.0208 | 0.0188 | **beats tesseract** on this class |
+
+Per-page cost on the board (one page, 26-68 boxes): detector 56-87 ms, DB post-processing 2-3 ms,
+recognition 123-258 ms, whole page 213-316 ms - i.e. 3-5 pages/s with both sessions on the cluster.
+
+**Reading it honestly**: the chain runs on the AI cluster, is line-accurate in layout, beats
+tesseract on the table class, and does **not** yet meet the printed-page band (CER 0.0278 against a
+target of 0.01; WER 0.26 says the errors concentrate in single words per line, the signature of
+remaining boundary splits). The pass band is not being relaxed to fit the result; the card stays
+open with the next one-variable candidates: chunk boundary handling (retry a boundary word as its
+own crop), rec normalisation (mean/std), and channel order.
+
+**S12 status: measured, card open.** Evidence: the run-3 transcripts and rates are in the package
+beside the invalid run-1 transcripts and the tesseract reference.
