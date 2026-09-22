@@ -584,3 +584,25 @@ S12 is closed as **measured and accepted** under the scheme's rules: fixture sea
 engine baseline, own-chain result, one negative control (printed), one counter-control (scanned must
 not read zero), and five failed/invalid runs kept with their causes (two fixture-layout bugs, one
 wrong-decode run, one overlap run, one letter-gap run).
+
+## 12. S9 execution log (started 2026-09-22)
+
+**Embedding side verified on the board.** `Bge-Small-Zh-V1.5-Q4_K_M.gguf` (15,448,256 bytes, sha256
+`0c17cc6ed7ec697d...`) was fetched from the vendor archive and run with the board's own
+`llama-embedding`: 512-dimensional embedding, 21 tokens, 0.41 s wall including model load - i.e. the
+embedding stage is milliseconds once loaded, and the RAG budget will be dominated by parsing and
+answering, not by vectorisation of short chunks.
+
+One trap reconfirmed, this time on the embedding tool: **every binary of this fork must be run with
+`-t 8`**. Without it `llama-embedding` dies with a stack trace inside the SpacemiT thread pool (the
+same `perfer_core_ids` guard the llama.cpp project documented); with `-t 8` it is clean and fast.
+That goes into the S9 card's pipeline description so nobody rediscovers it.
+
+Next for S9, in order: (1) seal the corpus (this workspace's reports and evidence READMEs, digest
+per file); (2) chunk it and embed with the model above; (3) index (sqlite-vec if it builds on the
+board, otherwise brute-force cosine over the sealed vectors - the corpus is small enough that the
+index is not the experiment); (4) 50 question/answer pairs with known answer spans; (5) retrieval
+metrics (recall@1/5/10) and the answer stage with citations; (6) the vendor reference application
+(`zenow` / `llm-sdk`, installs approved) on the same corpus. Negative control per the scenario rules:
+a question whose answer appears verbatim must not be beaten by a paraphrase-only question, and
+speculative decoding must show *no* gain on a novel-text answer.
