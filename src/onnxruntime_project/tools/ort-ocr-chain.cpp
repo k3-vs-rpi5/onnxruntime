@@ -199,10 +199,12 @@ int main(int argc, char **argv) {
     std::string det_path = argv[1], rec_path = argv[2], dict_path = argv[3];
     std::string out_dir = ".";
     int threads_det = 4, threads_rec = 4;  // the two sessions share eight TCM blocks
+    int forced_batch = 0;
     std::vector<std::string> pages;
     for (int i = 4; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "-o" && i + 1 < argc) { out_dir = argv[++i]; continue; }
+        if (a == "--rec-batch" && i + 1 < argc) { forced_batch = std::stoi(argv[++i]); continue; }
         if (a == "--threads" && i + 2 < argc) {
             threads_det = std::stoi(argv[++i]); threads_rec = std::stoi(argv[++i]); continue;
         }
@@ -235,6 +237,20 @@ int main(int argc, char **argv) {
     auto so_det = make_options(threads_det), so_rec = make_options(threads_rec);
     std::cout << "threads det=" << threads_det << " rec=" << threads_rec << "\n";
     Ort::Session det(*g_env, det_path.c_str(), so_det), rec(*g_env, rec_path.c_str(), so_rec);
+    // The recogniser may be exported as a batch model (the archive ships a batch-4 variant): read the
+    // batch dimension from its own input instead of assuming one, so the same harness measures the
+    // batching lever without a rebuild.
+    int rec_batch = 1;
+    {
+        auto info = rec.GetInputTypeInfo(0).GetTensorTypeAndShapeInfo();
+        auto shape = info.GetShape();
+        if (!shape.empty() && shape[0] > 0) rec_batch = static_cast<int>(shape[0]);
+        // A dynamic batch dimension reports as -1 while the export still demands exactly 4 (the b4
+        // variant fails with "index: 0 Got: 1 Expected: 4"), so the batch is overridable.
+        if (forced_batch > 0) rec_batch = forced_batch;
+        else if (shape.size() == 4 && shape[0] <= 0) rec_batch = 4;
+    }
+    std::cout << "rec_batch=" << rec_batch << "\n";
     auto dict = read_dict(dict_path);
     std::cout << "dict_entries=" << dict.size() << "\n";
     Ort::MemoryInfo mem = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
@@ -311,22 +327,40 @@ int main(int argc, char **argv) {
                 cursor = pick;
             }
             cuts.push_back(b.x1);
+            std::vector<std::vector<float>> pending;   // crops waiting for the recogniser
             std::vector<std::string> parts;
+            auto flush = [&](bool force) {
+                while (static_cast<int>(pending.size()) >= rec_batch ||
+                       (force && !pending.empty())) {
+                    int n = std::min<int>(rec_batch, pending.size());
+                    // Batch models exported for exactly N (the b4 variant rejects anything else with
+                    // "index: 0 Got: 1 Expected: 4"), so a short final group is zero-padded and the
+                    // padding's decodes are dropped.
+                    std::vector<float> buf(static_cast<size_t>(rec_batch) * 3 * 48 * 320, 0.f);
+                    for (int i = 0; i < n; ++i)
+                        std::copy(pending[i].begin(), pending[i].end(),
+                                  buf.begin() + static_cast<size_t>(i) * 3 * 48 * 320);
+                    std::vector<int64_t> rec_shape{rec_batch, 3, 48, 320};
+                    auto rec_in = Ort::Value::CreateTensor<float>(mem, buf.data(), buf.size(),
+                                                                  rec_shape.data(), rec_shape.size());
+                    const char *rec_in_names[] = {"x"};
+                    const char *rec_out_names[] = {"fetch_name_0"};
+                    auto rec_out = rec.Run(Ort::RunOptions{nullptr}, rec_in_names, &rec_in, 1,
+                                           rec_out_names, 1);
+                    auto shape = rec_out[0].GetTensorTypeAndShapeInfo().GetShape();
+                    int T = static_cast<int>(shape[1]), C = static_cast<int>(shape[2]);
+                    const float *data = rec_out[0].GetTensorData<float>();
+                    for (int i = 0; i < n; ++i)
+                        parts.push_back(ctc_decode(data + static_cast<size_t>(i) * T * C, T, C, dict));
+                    pending.erase(pending.begin(), pending.begin() + n);
+                }
+            };
             for (size_t k = 0; k + 1 < cuts.size(); ++k) {
                 Box part{cuts[k], b.y0, cuts[k + 1], b.y1};
-                auto rin = rec_input(img, part);
-                std::vector<int64_t> rec_shape{1, 3, 48, 320};
-                auto rec_in = Ort::Value::CreateTensor<float>(mem, rin.data(), rin.size(),
-                                                              rec_shape.data(), rec_shape.size());
-                const char *rec_in_names[] = {"x"};
-                const char *rec_out_names[] = {"fetch_name_0"};
-                auto rec_out = rec.Run(Ort::RunOptions{nullptr}, rec_in_names, &rec_in, 1,
-                                       rec_out_names, 1);
-                auto info = rec_out[0].GetTensorTypeAndShapeInfo();
-                auto shape = info.GetShape();
-                int T = static_cast<int>(shape[1]), C = static_cast<int>(shape[2]);
-                parts.push_back(ctc_decode(rec_out[0].GetTensorData<float>(), T, C, dict));
+                pending.push_back(rec_input(img, part));
+                flush(false);
             }
+            flush(true);
             // Chunk boundaries fall on blank columns, so the space that separated two words lives
             // outside both crops and must be put back - otherwise "pipeline evidence barrier"
             // arrives as "pipelineevidencebarrier" (measured).

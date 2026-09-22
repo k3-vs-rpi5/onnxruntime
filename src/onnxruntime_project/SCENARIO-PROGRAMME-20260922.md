@@ -840,3 +840,19 @@ the retrieved context **short** because prefill does not parallelise, and treat 
 throughput pipeline to be fed in one stream (batching several chunks per request would be the real
 lever, and this build's endpoint rejects a batched `input` array - the follow-up is `llama-embedding`
 with multiple prompts or a server built with embedding batching).
+
+**OCR batching measured, and rejected.** The archive's batch-4 recogniser
+(`PP-OCRv6_tiny_rec_b4_48x320.dynq`) was wired into the same chain (the harness reads or overrides the
+recognition batch; the b4 export demands exactly 4 and the harness zero-pads a short final group).
+Measured on the same 30 pages, same 4+4 thread budget:
+
+| recogniser | printed-00 recognition | tables-09 recognition | whole-page total | CER (printed / tables) |
+|---|---|---|---|---|
+| batch-1 (`..._rec_48x320.dynq`) | 123 ms | 253 ms | 213-316 ms | 0.0001 / 0.0053 |
+| **batch-4 (`..._rec_b4_48x320.dynq`)** | **561 ms** | **845 ms** | 650-904 ms | same quality (see rates file), **3.3x slower** |
+
+So on this stack batching the recogniser is a **loss**, not a win: the crops are small, the batch
+path costs more per call than four separate calls, and the padding is wasted work. The finding is
+recorded with the numbers, and the parallel-axis table now has all four rows measured: decode gains
+from slots (+53.8 %), prefill does not, embedding does not (+7.7 %), OCR batching is negative
+(-70 %). Each row is a *call-shape* result on the same model and the same board.
