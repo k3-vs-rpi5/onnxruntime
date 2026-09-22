@@ -606,3 +606,13 @@ metrics (recall@1/5/10) and the answer stage with citations; (6) the vendor refe
 (`zenow` / `llm-sdk`, installs approved) on the same corpus. Negative control per the scenario rules:
 a question whose answer appears verbatim must not be beaten by a paraphrase-only question, and
 speculative decoding must show *no* gain on a novel-text answer.
+
+**S9 retrieval measured (stage 1/3).** Corpus sealed (38 files, 531 KB), embedded with the vendor
+BGE-Small-Zh through the board's `llama-server --embeddings` at **17.7 ms/chunk** (2,226 chunks of
+<=300 chars), and evaluated with 50 corpus-derived queries: **recall@1/5/10 = 1.000** verbatim, and
+**0.980** on the word-shuffled negative control - one miss, reported. Two platform constraints are
+recorded in the tool: the endpoint takes a single `input` (a batch returns 500) and refuses inputs
+above its 512-token context.
+
+Still to do for S9: the answer stage (LLM with citations, TTFT, citation correctness) and the vendor
+reference application (`zenow` / `llm-sdk`) over the same corpus.
