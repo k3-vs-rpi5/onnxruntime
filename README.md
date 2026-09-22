@@ -232,6 +232,19 @@ package identity, and the documented entry points we are allowed to use.
   sampled inside a 400-inference pose run: `available_blocks=0/8`. The depth candidate is
   accepted with a measured defect (64.84 ms, 18.4 % of the frame on the CPU side, four
   rewrite families tried, none carried as pending).
+  Sections 9 and 10 finish the catalogue and the OCR pipeline. Eleven more candidates:
+  **three more published rows reproduced** (`mobilenet_v3_small` 2.719 against 2.75 ms,
+  `mobilenet_v3_large` 4.529 against 4.52, `efficientnet_v2_s` 13.860 against 13.53 - six
+  independent reproductions of the vision tables now, against zero for the LLM decode
+  rows), eight of eleven EP-complete, and three shapes the provider declines: an
+  open-vocabulary head (`yoloe` 37.9 %), a many-op decoder (`mobilesam_decoder`, 270 node
+  executions per frame, 20.3 %) and a top-k feature extractor (`superpoint`, 13.8 %). The
+  round also **qualifies round 3's dynq verdict**: the vendor's own `.dynq` recogniser is
+  EP-complete at 2.340 ms, so the technique is fine and only *our* xslim-produced dynq of a
+  vision transformer was refused - "who built the artefact" was the variable. Finally the
+  OCR pipeline: detector 35.989 ms, recogniser 2.340 ms, and run together 38.420 / 6.095 ms
+  - a frame costs 38.33 ms serialised against 38.42 ms overlapped, so the two stages should
+  be **serialised on the same eight cores**, not given one each.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

@@ -167,3 +167,67 @@ safe changed nothing, the one the mechanism pointed at made the frame 16 % slowe
 reimplemented the operator crashed the provider. It is reported to the vendor with minimal
 reproductions (`VENDOR-QUERY-20260922.md`); until that comes back, this candidate is usable at
 64.84 ms and its defect is priced.
+
+## 9. The rest of the catalogue: eleven more candidates
+
+Everything else on the priority list was then fetched, HEAD-checked and measured the same way
+(census first, then unprofiled latency at four and eight EP threads). The vendor's own scripts and the
+archive's `Content-Length` were used for filenames and sizes; two guessed names returned the usual
+400-byte error pages and were replaced from the scripts.
+
+| candidate (domain) | census | EP 4 | EP 8 | official row | verdict |
+|---|---|---|---|---|---|
+| `mobilenet_v3_small.fp16` (classification) | EP-complete | 3.335 ms | **2.719 ms** | **2.75 ms** | **reproduced (-1.1 %)** |
+| `mobilenet_v3_large.fp16` (classification) | EP-complete | 5.982 ms | **4.529 ms** | **4.52 ms** | **reproduced (+0.2 %)** |
+| `efficientnet_v2_s.q` (classification) | EP-complete | 19.828 ms | **13.860 ms** | **13.53 ms** | **reproduced (+2.4 %)** |
+| `mixformer_v2.q` (pose) | EP-complete | 22.006 ms | **14.984 ms** | none | accepted, baseline established |
+| `yolo26n-sem.fp16` (semantic segmentation) | EP-complete | 96.194 ms | **52.255 ms** | none | accepted, baseline established |
+| `lightglue_for_superpoint_512_depth9.fp16` (matcher) | EP-complete | 61.075 ms | **41.139 ms** | none | accepted, baseline established |
+| `banet_2d_small_512x640...q` (lanes) | EP-complete | 257.010 ms | **146.787 ms** | none | accepted, baseline established |
+| `mobilesam_encoder_tiny_sim.fp16` (promptable seg) | EP-complete | 63.942 ms | **40.304 ms** | none | accepted, baseline established |
+| `superpoint_512x512_top512_batch1.q` (local features) | **13.8 % fallback** (4 nodes) | 26.655 ms | 15.985 ms | none | accepted with a measured defect |
+| `mobilesam_decoder_sim.dynq` | **20.3 % fallback** (270 node executions per frame) | 31.318 ms | 28.983 ms | none | accepted with a measured defect |
+| `yoloe-v8s-seg.dynq` (open-vocabulary) | **37.9 % fallback** (12 nodes) | 184.463 ms | 157.545 ms | none | accepted with a measured defect |
+
+Three more published rows land inside a couple of percent - `mobilenet_v3_small`, `mobilenet_v3_large`
+and `efficientnet_v2_s`, joining `yolov8n-pose` from section 8. That is now **six independent
+reproductions of the vendor's vision tables** in this project, against zero for its LLM decode rows.
+
+The fallback pattern is worth reading as an architecture map: the provider claims the trees
+(MobileNet, EfficientNet, MixFormer, LightGlue, BANet, the segmentation head, the SAM encoder) and
+declines three shapes - an open-vocabulary head (`yoloe`, 37.9 %), a decoder with many small operators
+(`mobilesam_decoder`, 270 node executions per frame, 20.3 %) and a local-feature extractor with a
+top-k output (`superpoint`, 4 nodes, 13.8 %). None of the three is a Resize-style incident: they are
+the next candidates for the converter once the vendor answers the context question.
+
+### 9.1 Correction: dynamic quantisation is not what failed
+
+Round 3 wrote off the dynamic-quantisation route after our own `xslim --dynq` output was refused by
+the provider on an fp16 encoder and, on an fp32 copy, ran at 2.10 s. This round qualifies that:
+
+* the vendor's own **`PP-OCRv6_tiny_rec_48x320.dynq`** is **EP-complete** and runs in **2.340 ms**;
+* `mobilesam_decoder_sim.dynq` and `yoloe-v8s-seg.dynq` are partly claimed but still execute on the
+  provider for the majority of their nodes.
+
+So the technique is not the problem - **who built the artefact is**. A `.dynq` model produced by the
+vendor's toolchain for a graph it was designed for is claimed; our own dynq of a vision transformer
+was refused in fp16 and slow in fp32. The rejected finding stays scoped to that encoder rather than to
+dynamic quantisation as a class.
+
+## 10. The OCR pipeline, end to end
+
+Detection and recognition are two models and one real service shape, so they were measured as a
+pipeline rather than as two rows. Input: a generated 960x640 frame with three lines of text
+(`ocr-img/text-960x640.png`); both stages on the provider, eight threads, `-r 30` (solo) and `-r 200`
+/ `-r 2000` (concurrent), image fixed throughout.
+
+| stage | solo | concurrent with the other stage |
+|---|---|---|
+| `PP-OCRv6_tiny_det_640x640.fp16` | 35.989 ms | **38.420 ms (+6.8 %)** |
+| `PP-OCRv6_tiny_rec_48x320.dynq` | 2.340 ms | **6.095 ms (+160 %)** |
+
+Reading: the detector is **94 %** of a frame, so a two-stage pipeline can win at most the 6 % the
+recogniser costs - and running the two stages at once costs the detector 6.8 % in interference. A
+frame therefore takes **38.33 ms serialised against 38.42 ms overlapped**: the overlap buys nothing.
+The engineering conclusion is the opposite of the usual one: **serialise these two stages on the same
+eight cores** rather than giving each its own, and do not spend effort on the 2.3 ms stage.
