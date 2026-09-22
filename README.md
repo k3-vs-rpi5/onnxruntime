@@ -297,6 +297,17 @@ package identity, and the documented entry points we are allowed to use.
   decoder and costs 14 %. Against the best non-pipeline shape (two processes alternating at
   eight cores, 14.43 fps) the searched split is **+31 %**; against serialising the same
   in-process pair, +81 %.
+  Section 12 applies that method to the VLM - and the section is written around the
+  operator's standing instruction not to celebrate alone. The encoder curve is reported
+  against the vendor's published row for every width it defines: **ours 243.08 ms at four
+  cores against 256.47 (-5.2 %) and 150.02 at eight against 164.50 (-8.8 %), i.e. ahead**.
+  The decoder has no published figure and says so; the composed single-stream optimum is
+  (2,6) at 410.1 ms/frame, +27 % over the serialised shape - and the **real service refuses
+  it**: with four slots, encoder 2 plus text 6 serves 32.22 t/s against 47.88 for encoder 8
+  plus text 8, because llama-server overlaps *requests* whereas the ORT pipelines overlap
+  *stages*. So section 11's method is a single-stream tool, the VLM deployment rule stays
+  one server / four slots / encoder 8 / text 8, and the refused prediction is kept in the
+  table as the counter-example.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

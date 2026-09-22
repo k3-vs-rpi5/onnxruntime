@@ -355,3 +355,61 @@ searched split is **+31 %**; against serialising the same in-process pair, **+81
 So the refined deployment rule is: **one process, one session per model, stages overlapped, and the
 core split searched rather than assumed** - the split that wins is the one that leaves the
 strongest-scaling stage one core short of handing the bottleneck to its neighbour.
+
+## 12. The same method on the VLM service: it does not transfer, and the official row agrees we are ahead
+
+The VLM is also a two-stage workload - a vision encoder on the ONNX EP and a text decoder in
+llama.cpp - so the section-11 method was applied to it. Both stages were measured as scaling curves on
+this board, and the encoder carries the comparison the operator asked for on every number:
+
+| encoder width | ours | vendor's published row | delta |
+|---|---|---|---|
+| 4 AI cores (`fastvlm_vision.f16`, 512²) | **243.08 ms** | 256.47 ms | **-5.2 %** |
+| 8 AI cores | **150.02 ms** | 164.50 ms | **-8.8 %** |
+
+so on the one axis the published row defines, this project is *faster* than the official figure, and
+by a margin larger than the row's own run-to-run spread. The full curve: 735.52 / 410.08 / 294.48 /
+243.08 / 205.10 / 181.77 / 170.05 / 150.02 ms at 1 / 2 / 3 / 4 / 5 / 6 / 7 / 8 threads.
+
+The decoder curve, measured the same way (`llama-bench`, the vendor's LLM flags, `tg128` on the VLM's
+own text GGUF): 22.26 / 25.85 / 35.75 / 43.56 / 48.38 / 51.80 / 52.93 / 53.67 tokens/s - the same
+eight widths, and note the shape: 1 -> 2 threads buys 16 %, 2 -> 4 buys 68 %.
+
+Composing them for a single-stream frame (one image plus a 20-token answer, frame = max(encode(a),
+decode(b)) with a + b = 8):
+
+| split (encoder, decoder) | encode | decode (20 tokens) | frame |
+|---|---|---|---|
+| 1, 7 | 735.52 ms | 377.9 ms | 735.5 ms |
+| **2, 6** | 410.08 ms | 386.1 ms | **410.1 ms** |
+| 3, 5 | 294.48 ms | 413.4 ms | 413.4 ms |
+| 4, 4 | 243.08 ms | 459.1 ms | 459.1 ms |
+| 5, 3 | 205.10 ms | 559.4 ms | 559.4 ms |
+| 8, 8 serialised (encode, then decode - what the server does today) | 150.02 ms | 372.6 ms | 522.6 ms |
+
+The composition's answer is **(2, 6) at 410.1 ms/frame, +27 % over the serialised shape**, and it obeys
+section 11.1's rule - the split lands where the encoder stops being the bottleneck and the decoder has
+not yet become one.
+
+**The real service refuses it.** Running the vendor's own `llama-server` with four slots and four
+simultaneous image requests (32 tokens each):
+
+| served shape | aggregate |
+|---|---|
+| encoder 8 threads, text `-t 8` | **47.88 t/s** |
+| encoder 4 threads, text `-t 8` | 42.14 t/s |
+| encoder 2 threads, text `-t 6` - the composed optimum | **32.22 t/s (-33 %)** |
+
+The reason is a difference in *what overlaps*. The ORT pipelines overlap **stages** of one frame, and a
+split then decides which stage is the bottleneck. The VLM server overlaps **requests**: four slots run
+their encode and decode phases interleaved, and in that regime both phases want the whole cluster -
+starving the encoder to two threads costs more than any stage overlap can return. So the section 11
+method is a **single-stream** tool; it does not transfer to a multi-slot service, and the deployment
+rule for the VLM service stays what it was measured to be: **one server, four slots, encoder 8, text 8,
+requests queued.**
+
+Two things this section is careful about, because the operator's standing instruction is not to
+celebrate alone: every number above sits next to the official row or is explicitly marked as having
+none (the decoder has no published figure, and the published *service* row defines no statistic at all
+- acceptance rule R10), and the composed prediction that the real server refused is kept in the table
+as the counter-example rather than deleted.
