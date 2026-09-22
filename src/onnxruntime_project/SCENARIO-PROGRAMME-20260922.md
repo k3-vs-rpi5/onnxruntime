@@ -659,3 +659,27 @@ Status: **the reference is installed, running and API-mapped; the corpus has not
 yet.** S9's own-chain numbers (recall 1.000 / 0.980, TTFT 2.2 s, citations 16/20) stand as the
 measured result, and the reference column stays empty rather than being filled with a different
 configuration.
+
+## 13. S11 execution log (started 2026-09-22)
+
+**Fixture sealed.** 1,000 images in 10 known groups with 20 verbatim duplicates planted
+(`tools/make-album-fixture.py`, deterministic, `labels.tsv` + `manifest.tsv`), so duplicate detection
+has a precision *and* a recall denominator and clustering has an NMI baseline.
+
+**Encoder interfaces read out of the ONNX files, not assumed** (same discipline that made S12
+straightforward):
+
+| encoder | input | output | opset |
+|---|---|---|---|
+| `image_encoder.fp16` (MobileCLIP2-S3) | `input` 1x3x**256x256** fp32 | `output` dynamic 2-D (batch x dim) | 17 + com.microsoft |
+| `siglip2_vision_encoder_fp16_proj.dynq` | `pixel_values` batch x 3 x **224x224** fp32 | `image_embeds` batch x **768** | 24 |
+
+Both are already measured EP-complete in this project (0 CPU nodes), so the S11 embedding stage can
+be a C++ harness in the shape of `ort-ocr-chain` (PPM in, provider claimed, vectors out) rather than
+anything Python - the board's Python ONNX Runtime reaches only the CPU EP.
+
+Remaining S11 work, in order: (1) the embedding harness and 1,000 vectors; (2) clustering (numpy
+agglomerative over cosine) with NMI against `labels.tsv`; (3) `imagehash` duplicate pass with
+precision/recall against the planted 20; (4) the text-query row (BGE-Small-Zh text embedding against
+the image vectors, or the encoders' own text towers if the vendor ships them); (5) build time per
+1,000 images.
