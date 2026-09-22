@@ -356,6 +356,10 @@ package identity, and the documented entry points we are allowed to use.
   rules that follow from the ambiguity (the row is context, S1 is the only official-comparable
   number, a claim names its statistic and cache state), and the procedure a change on this path must
   pass. It adds no measurement; it fixes what "better" means before the next VLM round runs.
+  `PLAN.md` was rewritten to match: the 2026-09-20 questions are closed by measurement, the plan is
+  the G-list with live statuses, and the one structural deliverable still missing is named there -
+  the project's own `scripts/build.sh` and `scripts/run.sh`, which `project.yaml` still declares as
+  `pending-automation`.
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry

@@ -1,79 +1,89 @@
-# ONNX Runtime project: plan
+# ONNX Runtime project: the plan, as of 2026-09-22
 
-Scope: measure and evidence what the SpacemiT ONNX execution provider (`libspacemit_ep.so`) does on
-this board, the way the llama.cpp project measures its vendor backend - host-side tooling around a
-sealed vendor component, no modification of the component.
+Scope, unchanged since the planning round: measure and evidence what the SpacemiT ONNX execution
+provider (`libspacemit_ep.so`) does on this board the way the llama.cpp project measures its vendor
+backend - host-side tooling around a sealed vendor component, **no modification of the component**.
+Nothing under `src/onnxruntime` is touched by any round.
 
-This round (2026-09-20) is **planning only**: the pinned fork is checked out, the sealed release
-package is retrieved and identified, the directory layout exists, and
-`TECHNICAL-ANALYSIS.md` records what is known and what is missing, and `DEEP-ANALYSIS.md` turns the
-llama.cpp campaign's measured AI-cluster rules, the vendor's K3 tables and two real provider traces
-into a ranked optimisation agenda with VLM and embodied-AI workloads in front. No source file in
-`src/onnxruntime` has been touched, and no provider behaviour has been changed.
+This file replaces the 2026-09-20 version, whose three open questions are now closed by measurement
+(D1-D3 in `NEXT-ROUND-ANALYSIS-20260922.md` §7). It is the live plan; the round reports are the
+record.
 
 ## What is in place
 
 | item | state |
 |---|---|
 | pinned fork `src/onnxruntime` | `d76541ad26ca93d2d52e5d2db2aacaff862df5cf` (ref `upstream-1.24.2`), clean |
-| sealed release package | `spacemit-ort.riscv64.2.0.6.tar.gz` under `.local/k3-tools/riscv64/`, sha256 checked against `sources.lock.yaml` |
-| board-side provider | deb packages `spacemit-onnxruntime` / `python3-spacemit-ort` 2.0.6, library identities recorded in the analysis |
-| vendor documentation | `.local/docs-ai/{en,zh}/compute_stack/ai_compute_stack/onnxruntime*.md` |
-| probe tooling already in the workspace | `hardware/k3-monitor/experiments/onnx-ep-{matrix.sh,profile.py,analysis.py}` and the `onnx_ep_bench` workload |
-| package contents beyond the libraries | `include/` (19 headers incl. `spacemit_ort_plugin.h`), `plugin/` examples + test models, `samples/` (LLM/vision engines, imagenet, concurrency), `bin/` (`onnxruntime_perf_test`, `onnx_test_runner`), `scripts/build_plugin.sh` - see the analysis |
+| sealed release package | `spacemit-ort.riscv64.2.0.6.tar.gz`, sha256 checked against `sources.lock.yaml`; the board's deb pair differs under the same version - a declared deviation, measured behaviourally equivalent (60 tensors bit-identical, timings within 0.41 %) |
+| board-side identity | ort `2.0.6` (deb runtime `076d9e83…`, provider `d8fa3633…`; tarball `93bb7560…`/`dcc95030…`), llama.cpp `0.1.7~a0+4` build `5a23f07a4` |
+| measurement protocol | `METHOD-ALIGNMENT-20260921.md`: the vendor's methods verbatim, our reproduction, R1-R12 and the calibrated bands |
+| tooling | `tools/` - the matrix, census, session, service-shape, pipeline, probe and report instruments, each documented in `tools/README.md` |
+| evidence | `/root/k3-evidence/onnxruntime/{planning-20260920,baseline-20260921,peak-20260922,multisession-20260922}/`, every package with a per-file sha256 registry and a self-check |
+| public entry points | **not built yet** - see S1 below; today's rounds run through `hardware/k3-monitor/experiments/board.sh`, which the workspace contract allows for the steps between delivered runs |
 
-## Deliverables (in order, each independently verifiable)
+## What the rounds established (all with sealed evidence)
 
-1. **Identity lock, extended.** `sources.lock.yaml` gains the deb-installed library digests for the
-   board's provider, so a package upgrade cannot pass unnoticed the way a vendor force-push cannot
-   for the fork.
-2. **`scripts/build.sh`.** Cross-builds the project's own workload binary and probe against the
-   board's shipped `libonnxruntime.so` + `libspacemit_ep.so` (the `board-onnxrt-copy` dependency in
-   `hardware/k3-monitor` already does this by hand), sealed with `SHA256SUMS` and verified with the
-   monitor's `payload_verify.py`.
-3. **`scripts/run.sh`.** Host-to-device delivery and the measurement matrix: CPU EP baseline on the
-   X100 cluster, provider on the AI cluster, identical-output check, `SPACEMIT_EP_DEBUG_PROFILE`
-   trace, `SPACEMIT_EP_DUMP_SUBGRAPHS` / `SPACEMIT_EP_DUMP_TENSORS` captures.
-4. **A100 engagement evidence.** Per the workspace contract, provider work on the AI cluster is
-   claimed only with the runtime's own registration plus `spacemit-tcm-smi` occupancy naming the
-   workload's pid, read together with the throughput arithmetic the workload's shape implies - never
-   with per-CPU counters or per-process CPU time.
-5. **Sealed evidence package and a report entry**, with every raw artefact named by its digest.
-6. **Plugin track (optional, after 1-5).** The published `spacemit_ort_plugin.h` path
-   (`AddOperator` / `AddDispatch`) is the only allowed way to change operator compute on this stack;
-   it becomes interesting once the profile trace shows an operator worth replacing.
+* the published **vision** rows are acceptance-grade here (six independent reproductions inside
+  -1.4..+2.5 %, one +4.9 % outlier) and the vendor's own `4x2` application shape lands within 0.4 %
+  of their published multi-stream totals;
+* the **VLM encoder** beats the published row at both widths it defines (-5.2 % / -8.8 %), and the
+  published VLM cell has no named statistic at all (`VLM-ACCEPTANCE-BASIS-20260922.md`);
+* the published **LLM decode** rows are ~10 % above what the vendor's own binaries produce on this
+  board; the prefill rows reproduce;
+* the AI cluster's own matrix ceiling is **2754 GOPS at eight threads** (18.4 % of the quoted peak),
+  one TCM block per compute thread (`AI-CLUSTER-PEAK-20260922.md`);
+* the throughput rule is **N sessions x 8/N threads** (`8x1` = 146.62 / 86.14 inf/s on `yolov8n` /
+  `yolov8s`, +9-11 % over the published totals), the latency rule is one 8-thread session, and the
+  multi-slot VLM service keeps one server with four slots (`MULTI-SESSION-SCALING-20260922.md`,
+  `MODEL-ALTERNATIVES-20260922.md`);
+* configuration is exhausted on YOLO: every provider option, session option, core allocation, stream
+  split and cluster choice is measured and none moves it (`YOLO-OPTIMISATION-20260921.md`).
 
-`DEEP-ANALYSIS.md` proposes D1-D8 in priority order and is the reference for what to run first:
-D1 (EP thread/TCM/session census) and D2 (subgraph coverage audit) are the two that decide whether
-the VLM encoder path is structurally sound before any tuning. **Both ran on 2026-09-21 and
-`BASELINE-20260921.md` records the results**: the EP creates exactly N compute threads with N TCM
-blocks (the "2x intra" documentation note does not hold), every measured model lands in a single
-provider subgraph including Attention/LayerNormalization/Gelu, the local matrix reproduces the
-vendor's published K3 table to within a couple of percent, and the fastvlm VLM path was measured end
-to end (encoder 241.52 ms at 4 threads against 150.89 at 8; the vendor's 92 ms end-to-end delta is
-entirely the encoder's thread scaling; the two engines serialise on the 8-block TCM table).
+## The current plan
 
-## Acceptance for step 1 (this round)
+Executed from `NEXT-ROUND-ANALYSIS-20260922.md`, in its order:
 
-`PLAN.md` and `TECHNICAL-ANALYSIS.md` exist under `src/onnxruntime_project/`, the package digest
-matches `sources.lock.yaml`, the fork checkout is clean at the locked commit, and nothing under
-`src/onnxruntime` differs from the pin.
+| # | item | state |
+|---|---|---|
+| G1 | the AI cluster's own int8 ceiling | **done** - `AI-CLUSTER-PEAK-20260922.md` |
+| G2 | the multi-session rule on a second model | **done** - `MULTI-SESSION-SCALING-20260922.md` |
+| G4 | the VLM acceptance basis | **done** - `VLM-ACCEPTANCE-BASIS-20260922.md` |
+| G3 | make the multi-stream comparison like-for-like | open - three priced options, the strongest needs operator approval (D4) |
+| G5 | one composed embodied/perception scenario under the three deployment rules | next, pending the scenario choice (D6) |
+| G6 | the LLM decode rows: pursue or demote | proposal: demote to context (D8) |
+| G7 | `/dev/tcm_sync_mem` | kept open: a board-provisioning question with a number attached |
 
-## Out of scope
+## S1. The structural deliverable still pending: the two public scripts
 
-- The provider's internals: it ships stripped and its source is not published. Work uses documented
-  interfaces only (`Ort::SessionOptionsSpaceMITEnvInit`, the provider options, the dump/profile
-  switches).
-- Changing the model, its quantisation or the board's packages.
-- Claiming any number without the run's own counters and a physics check, as everywhere in this
-  workspace.
+`project.yaml` declares `public_delivery: pending-automation` with `scripts/build.sh` and
+`scripts/run.sh` as the intended entry points, and the workspace contract makes those the only
+public interface of a project. They do not exist yet; every round so far has used the monitor's
+ad-hoc `board.sh`, which is allowed between delivered runs but is not the durable path.
 
-## Open questions for a human
+What they should be, following the llama.cpp project's shape:
 
-1. Which workload is the acceptance target - the smoke model already on the board
-   (`squeezenet1.1-7.onnx`, Conv-heavy) plus one transformer, or a specific customer model?
-2. Is the deliverable the provider matrix as it stands (comparison and profile), or should the
-   project also build the fork's own `onnxruntime_perf_test` / `onnx_test_runner` (the demo path in
-   the vendor documentation) and measure with those?
-3. Should the project aim at the two-cluster question the llama.cpp campaign closed (X100 + A100
-   split), or stay with "which cluster does the provider use, and how well"?
+* `scripts/build.sh` - cross-build this project's own artefacts (the harness binaries and the probe
+  generator's outputs) with the workspace toolchain
+  `spacemit-toolchain-linux-glibc-x86_64-v1.2.4`, sealed with digests;
+* `scripts/run.sh` - deliver those artefacts, the selected models and the instruments to the board,
+  execute the measurement matrix there, and pull the raw output back into a new evidence package;
+* the models and the vendor package stay inputs, identified by digest, never rebuilt;
+* `project.yaml` moves off `pending-automation` once the two scripts exist and one round has run
+  through them, and that state change is reported rather than silent.
+
+## Decisions outstanding
+
+`NEXT-ROUND-ANALYSIS-20260922.md` §7 lists them. The first three are proposals to close the
+2026-09-20 questions and need only a nod; **D4** (may the vendor's multi-stream application be
+fetched and run on the board) and **D6** (which composed scenario) materially change what the next
+rounds do.
+
+## Out of scope (unchanged)
+
+* the provider's internals: it ships stripped and its source is not published; work uses documented
+  interfaces only (`OrtSessionOptionsSpaceMITEnvInit`, the provider options, the dump/profile
+  switches, the published plugin API);
+* changing the model, its quantisation, its weight layout, or the board's packages (model
+  substitution is a separate track, `MODEL-ALTERNATIVES-20260922.md`, and needs its own approval);
+* claiming any number without the run's own counters and a physics check, and any AI-cluster claim
+  without `spacemit-tcm-smi` naming the workload.
