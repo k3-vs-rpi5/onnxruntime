@@ -215,6 +215,13 @@ package identity, and the documented entry points we are allowed to use.
   "fewer CPU nodes" is not the same claim as "faster". The next query is named and
   priced: why the provider's execution of the reconnected region costs ~16 ms more than
   the CPU fragment it replaced, with a one-Conv-plus-one-Resize probe behind it.
+  `VENDOR-QUERY-20260922.md` (Chinese, for sending) is that question written as a
+  support report: three reproducible issues - a supported operator declined when it
+  stands alone but claimed next to a convolution; a reconnected region that the provider
+  executes 16 % slower than the CPU fragment it replaced; and a Gather-based graph that
+  **segfaults** the provider instead of being declined - each with its probe, its numbers
+  and the specific questions asked of the vendor. The minimal reproductions travel in the
+  evidence directory (`model-alternatives/converter-r1/vendor-query-probes/`).
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
