@@ -446,3 +446,34 @@ reproducibility is already demonstrated for the existing harness), delivered by 
 and an S12 card with both engines' per-class CER/WER and pages/minute. The negative control stays the
 printed class (tesseract = 0.0000); the counter-control stays the scanned class (a suspicious 0.0000
 there is investigated, not celebrated).
+
+### S12, the interface facts and the one blocker (measured 2026-09-22)
+
+Read out of the two ONNX files rather than assumed:
+
+| model | input | output | opset |
+|---|---|---|---|
+| `PP-OCRv6_tiny_det_640x640.fp16` | `x` 1x3x640x640, fp16 | 1x1x640x640 probability map | 24 |
+| `PP-OCRv6_tiny_rec_48x320.dynq` | `x` 1x3x48x320, fp16 | `Softmax` logits, and the classifier behind them is `linear_1` with **6906** classes | 24 |
+
+So the recogniser needs a **6905-token dictionary** (classes minus the CTC blank). The upstream
+PaddleOCR files were fetched and counted rather than guessed:
+
+| candidate | lines | matches 6905? |
+|---|---|---|
+| `ppocr_keys_v1.txt` | 6,623 | no |
+| `ppocrv5_dict.txt` | 18,383 | no |
+| `ppocrv6_dict.txt` (upstream `main`) | 18,708 | no |
+| `en_dict.txt` | 95 | no |
+
+The vendor archive ships the two `.onnx` files and **no dictionary**, and no candidate matches the
+tiny model's 6,906-class head. That is the blocker, stated precisely: *our own OCR chain can detect
+boxes and produce class indices today, but it cannot emit text until the correct 6,905-entry
+dictionary for this tiny model is obtained.* Candidate sources, in order: the vendor's own
+deployment packages (a `dpkg -L` sweep of any OCR-bearing application on the board), the vendor
+archive path next to the models, or a vendor answer. Nothing is being substituted for it - a wrong
+dictionary would silently turn the CER gate into noise.
+
+Also noted for later scenarios: the archive carries **`PP-OCRv6_tiny_rec_b4_48x320.dynq.onnx`**, a
+batch-4 recogniser - i.e. the throughput shape is available in the same family and will be the S12
+throughput row once the dictionary question is closed.
