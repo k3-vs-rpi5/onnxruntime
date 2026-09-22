@@ -131,3 +131,39 @@ payload is treated as a model. Guessing produced the opposite: a `NoSuchKey` XML
 bytes was filed as `rfdetr-nano.fp16.onnx` and sat in this project's evidence for a day looking like a
 model (the same trap returned 442- and 447-byte pages for two guessed face-recognition names in this
 round). A candidate list built by guessing names would have been mostly fiction.
+
+## 8. The first four candidates, measured
+
+Downloaded (17 MB total), pushed, and put through the acceptance procedure in order - coverage census,
+published-row check where one exists, then the deployment shape with a TCM sample inside the run. All
+numbers below are unprofiled, `-r 20`, `-x 8`, one session:
+
+| candidate | census | EP 4 threads | EP 8 threads | published row | verdict |
+|---|---|---|---|---|---|
+| `yolov8n-pose.q` | **EP-complete** (0 CPU nodes) | 16.185 ms | **11.195 ms** | **11.16 ms** | **reproduced to 0.3 %** |
+| `PP-OCRv6_tiny_det_640x640.fp16` | **EP-complete** | 56.374 ms | **35.989 ms** | none | accepted, baseline established |
+| `PP-OCRv6_tiny_rec_48x320.dynq` | **EP-complete** | 3.114 ms | **2.358 ms** | none | accepted, baseline established |
+| `arcface_mobilefacenet_cut.q` | **EP-complete** | 4.227 ms | **3.137 ms** | none | accepted, baseline established |
+| `yolo26n-depth.fp16` | 18.4 % head fallback | 98.834 ms | **64.844 ms** | none | accepted with a measured defect (below) |
+
+Three things worth carrying out of this table:
+
+1. **the pose candidate confirms the published vision rows a third time.** 11.195 ms against the
+   official 11.16 ms is inside the noise of a row reproduced from the vendor's own table - the same
+   relationship the rest of this project found for vision, and the opposite of the LLM/VLM rows, which
+   sit 10-13 % above what the vendor's own tools produce here;
+2. **a vendor-shipped dynamic-quantisation model is claimed in full.** The OCR recogniser is `.dynq`
+   and the provider takes every node of it, which matters because our own earlier attempt to produce a
+   dynq model with `xslim` was refused (`Conv` bound to different types) and the dynamic route was
+   written off. The difference is who produced the artefact, not the technique;
+3. **TCM engagement is evidenced, not assumed.** Sampled while a 400-inference pose run was in flight:
+   `available_blocks=0/8` - all eight AI-core blocks held by that pid. Every number in this table has
+   that class of evidence behind it (`spacemit-tcm-smi`, plus the thread census the campaign uses).
+
+The depth candidate is the exception and now carries a measured defect instead of a hope: 18.4 % of its
+frame is a CPU-side head (`Resize` 6.34 ms, `Cast` 2.14, `Pow` 2.00, `Exp` 0.11), four rewrite
+families were tried against it, and none is carried as pending - the two that were mathematically
+safe changed nothing, the one the mechanism pointed at made the frame 16 % slower, and the one that
+reimplemented the operator crashed the provider. It is reported to the vendor with minimal
+reproductions (`VENDOR-QUERY-20260922.md`); until that comes back, this candidate is usable at
+64.84 ms and its defect is priced.

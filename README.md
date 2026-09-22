@@ -222,6 +222,16 @@ package identity, and the documented entry points we are allowed to use.
   **segfaults** the provider instead of being declined - each with its probe, its numbers
   and the specific questions asked of the vendor. The minimal reproductions travel in the
   evidence directory (`model-alternatives/converter-r1/vendor-query-probes/`).
+  Section 8 of the alternatives document closes the first acceptance round on the four
+  approved candidates: `yolov8n-pose` is **EP-complete at 11.195 ms against the published
+  11.16 ms - the published vision row reproduced to 0.3 % for the third time**; the OCR
+  detector (35.99 ms) and recogniser (2.358 ms) and the face embedder (3.137 ms) are
+  EP-complete with new baselines established, and the recogniser matters because it is a
+  **vendor-shipped dynamic-quantisation model that the provider claims in full** - our own
+  `xslim`-produced dynq was refused, so the difference is who built the artefact. TCM was
+  sampled inside a 400-inference pose run: `available_blocks=0/8`. The depth candidate is
+  accepted with a measured defect (64.84 ms, 18.4 % of the frame on the CPU side, four
+  rewrite families tried, none carried as pending).
   Nothing under `src/onnxruntime` has been modified.
 
 ## Workspace entry
