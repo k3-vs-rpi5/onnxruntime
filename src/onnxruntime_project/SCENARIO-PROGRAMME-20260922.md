@@ -771,3 +771,17 @@ S11 is accepted on this basis: the scenario was blocked, the blocker was a named
 material was obtained from the vendor's own assets, and the metrics are reported with the gate that
 each one belongs to. The 1,000-image synthetic fixtures are kept as the record of why synthetic
 material cannot be used for this scenario.
+
+**S9 stage 3 probe: the reference is healthy, and the vectoriser is the missing piece.** The board's
+`llm-sdk` answers `/api/health` with `{"status":"healthy"}`, lists a model catalogue of **four LLMs**
+(Qwen3-0.6B / 1.7B / 30B-A3B / Qwen3.5-2B, all `is_downloaded=false`), and already carries one
+pre-existing knowledge base (`spacemit_zenow`, 40 documents) from the vendor's own image - so the
+knowledge-base machinery is real and populated, not hypothetical. The Qwen3-0.6B download was started
+through the SDK's own API (`{"success":true,"message":"Download started ..."}`).
+
+The gap: **the catalogue contains no embedding or rerank model**, while the knowledge-base
+vectorisation step needs one. The vendor's own desktop application for this task (`zenow`) documents
+exactly that trio - LLM + Embed + Rerank - so the reference path is: install `zenow` (or add an embed
+model to this SDK) before the corpus can be vectorised through the vendor stack. That is recorded as
+the remaining dependency for S9.3 rather than being papered over with a different configuration; the
+self-chain numbers stay the measured result.
