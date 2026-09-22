@@ -635,3 +635,11 @@ never silently produced nothing, which was the VLM lesson from earlier rounds.
 
 Stage 2/3 closed for the pipeline under test; what remains for S9 is stage 3/3, the vendor reference
 application (`zenow` / `llm-sdk`, installs approved) over the same sealed corpus.
+
+**S9 stage 3 started: the vendor reference is installed and running.** `apt install llm-sdk` (0.0.39,
+candidate verified earlier) installs a venv at `/opt/llm-sdk` and a **`llm-sdk.service`** which is
+`active (running)` and brings up its own object store (`MinIO` on 9000, console 9001) - i.e. the
+reference is a full knowledge-base stack, not a CLI. Wiring the sealed corpus through its
+knowledge-base API is the remaining work; it needs the API surface (port, endpoints, auth) from the
+vendor documentation, and it will run against the same 38-file corpus and the same 50 questions the
+self-chain was measured with, so the two are comparable statistic-for-statistic.
