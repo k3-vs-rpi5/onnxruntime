@@ -103,9 +103,14 @@ chunk-overlap, one letter-gap cut).
 2. **S9 answer quality** - the citation failures are a model-behaviour gate: next candidates are a
    stricter prompt with an explicit "cite only from [1]..[k]" contract, and scoring faithfulness
    with a second model (the programme's stated method).
-3. **S11 album** - fixture sealed and encoder interfaces measured; next are the embedding harness,
-   NMI/purity clustering, `imagehash` duplicate precision/recall against the planted 20, the
-   text-query row and build time per 1,000 images.
+3. **S11 album** - the embedding harness is built and the 1,000-image pass ran at **45.03 ms/image**
+   (MobileCLIP2-S3, AI cluster), but the first metrics are **rejected: the fixture is wrong** - its
+   per-group variants are near-identical (intra-group cosine mean 0.970, min 0.898) and overlap the
+   inter-group band (mean 0.901, max 0.966), so the planted duplicates are not separable from the
+   non-duplicates (aHash precision 0.005 even at Hamming 0; embedding cosine 0.039 at >=0.999). The
+   perfect NMI 1.000 is therefore treated as uninformative too. The fixture is rebuilt with textured
+   bases, verbatim duplicates as the only positive class, and a separate near-duplicate class before
+   any S11 number is accepted.
 4. **S10 embodied decision** - 100 generated scenes with ground truth, a decision-latency budget, the
    S7/S8 interference matrix re-used, `vla/` models optional.
 5. **S13 audio** - optional; the vendor ASR path against a board-built `whisper.cpp`.

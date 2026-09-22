@@ -691,3 +691,29 @@ writes one JSON line per image (`{"image":..., "vector":[...]}`). Validated on t
 fixture images through MobileCLIP2-S3 (256x256, `--norm clip`): the first ten ran end-to-end and the
 run reports **74.95 ms/image**. The full 1,000-image pass, the clustering/NMI and the `imagehash`
 duplicate precision/recall against the planted 20 are the remaining S11 measurements.
+
+### S11 first metrics: clustering fine, duplicate gate invalid **because the fixture is wrong**
+
+The full 1,000-image pass ran on the AI cluster (**45.03 ms/image**, MobileCLIP2-S3 at 256x256), and
+the first metrics were computed - then thrown away, because the fixture does not separate what the
+duplicate gate is supposed to separate:
+
+| metric | value | reading |
+|---|---|---|
+| clustering NMI / purity (k-means, k=10) | **1.000 / 1.000** | the ten groups separate - but see the space below |
+| planted-pair nearest-neighbour hits | 19/20 | one planted copy is not its partner's nearest image |
+| duplicate precision / recall, aHash <= 4 | 0.001 / 1.000 | **invalid**: even at Hamming 0 the precision is 0.005, i.e. ~200 non-duplicate pairs share a hash |
+| duplicate precision / recall, embedding cosine >= 0.999 | 0.039 / 1.000 | still invalid |
+| same-group cosine mean / min | 0.970 / 0.898 | variants of one base image are near-identical by construction |
+| different-group cosine mean / max | 0.901 / **0.966** | and different groups overlap the same band |
+
+The diagnosis is a fixture design error, not an algorithm result: 100 "different" images per group are
+mild transforms of one abstract shape, so they are *semantically* duplicates too, and the planted
+verbatim copies are not distinguishable from them. The whole set also collapses into a narrow cone
+(inter-group max 0.966 against intra-group min 0.898), which makes the perfect NMI less impressive
+than it reads.
+
+Per the scheme's rules the numbers are **not accepted**; the fixture is rebuilt with (a) textured base
+images that differ substantially inside a group, (b) verbatim duplicates as the only positive class,
+and (c) a separate near-duplicate class, and the metrics are re-run once. The embedding harness,
+its 45 ms/image cost and the metric tooling all stand.
