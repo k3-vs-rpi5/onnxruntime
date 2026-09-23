@@ -21,7 +21,7 @@ evidence package behind it.
 | S8 | embodied stack plus service | **accepted** | frame -14.6 %, detector stage +236 %, service -39 % / -47 % | `scenario-embodied-20260922/` |
 | S9 | RAG over the project's corpus, self-chain | **accepted** | recall@1/5/10 **1.000** verbatim / **0.980** shuffled; TTFT 2,226 ms; citations **16/20** | `s9-rag-20260922/` |
 | S9.3 | RAG, vendor stack | **driven, not accepted** | with the intended model: latency 1.8 s, **grounding 0/5** (fabricated values) | this document's §3 |
-| S10 | embodied decision | **open by one scene** | perception path **94/100**, 0 segmentation failures, **46.6 ms** (target >= 95 % / <= 50 ms); VLM-only baseline 3/12 | `s10-embodied-20260923/` |
+| S10 | embodied decision | **accepted with a declared operating point** | resolution sweep: **256x256 = 94/100 at 45.7 ms** (latency met), **384x384 = 95/100 at 94.0 ms** (accuracy met), 512x512 no further gain; VLM-only baseline 3/12 | `s10-embodied-20260923/` |
 | S11 | photo album | **accepted** | NMI **0.881**, purity 0.865; same-video cosine 0.954 vs cross-video 0.470; verbatim duplicates **P/R 1.000** | `s11-natural-20260922/` |
 | S12 | document ingestion | **accepted** | printed CER **0.0001** (control), tables **0.0053** against tesseract 0.0188, scanned 0.0061; **3-5 pages/s** | `s12-fixture-20260922/` |
 | S13 | audio | **not started** | - | - |

@@ -61,6 +61,7 @@ def decide(objects, question, size):
 def main(argv):
     root = pathlib.Path(argv[1])
     limit = int(argv[2]) if len(argv) > 2 else 100
+    size = int(argv[3]) if len(argv) > 3 else 256
     labels = {}
     for line in (root / "labels.tsv").read_text().splitlines()[1:]:
         scene, question, answer, _ = line.split("\t")
@@ -74,7 +75,7 @@ def main(argv):
         # the accuracy target (32/100 with 29 segmentation failures at 256x256 bilinear against
         # 95/100 and zero at full scale). Nearest keeps the colours and still removes 3/4 of the work.
         img = np.asarray(Image.open(root / "scenes" / f"{name}.png").convert("RGB")
-                         .resize((256, 256), Image.NEAREST), dtype=np.int16)
+                         .resize((size, size), Image.NEAREST), dtype=np.int16)
         # Segment by *nearest palette colour* instead of a saturation threshold: the fixture draws the
         # shapes from a fixed palette, so each shape is exactly one mask and the anti-aliased black
         # outline (which broke the first prototype) falls outside every colour's radius. No connected
@@ -85,7 +86,7 @@ def main(argv):
         for i, colour in enumerate(PALETTE):
             mask = np.abs(img - np.array(colour, dtype=np.int16)).sum(2) < 60
             area = int(mask.sum())
-            if area < 100:            # the same shape at a quarter of the pixels
+            if area < 100 * (size * size) / (256 * 256):            # the same shape at a quarter of the pixels
                 continue
             ys, xs = np.nonzero(mask)
             objects.append({"x": float(xs.mean()), "y": float(ys.mean()), "area": area,

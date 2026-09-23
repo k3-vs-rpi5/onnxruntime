@@ -1190,3 +1190,29 @@ with the target missed by 4-9 scenes depending on the fixture, and the honest ne
 another fixture tweak but a **segmentation check** (report two-object scenes explicitly instead of
 counting them as wrong decisions) plus an explicit band-boundary rule (for example, compare objects
 that are within half a line-height by x only). Both are card-level changes, not research.
+
+### S10 resolution sweep: the two targets are a Pareto choice, not a failure
+
+The decision layer was parameterised by input size and swept over both fixtures on all 100 scenes:
+
+| fixture | 256x256 | 384x384 | 512x512 |
+|---|---|---|---|
+| **v2** (no margin gate) accuracy / segmentation failures / latency | **94/100**, 0, **45.7 ms** | **95/100**, 0, **94.0 ms** | **95/100**, 0, 159.5 ms |
+| v3 (8 % margin gate) accuracy / failures / latency | 91/100, 2, 46.1 ms | 92/100, 2, 94.0 ms | 93/100, 2, 159.4 ms |
+
+Three readings:
+
+1. **resolution buys accuracy monotonically but with a steep price**: +1 point from 256 to 384 costs
+   +48 ms, and from 384 to 512 another +65 ms buys nothing (95 -> 95). 384x384 is the knee;
+2. **the two card targets are met at different settings, not at one**: latency (<= 50 ms) is met at
+   256x256 with accuracy one scene short; accuracy (>= 95 %) is met at 384x384 with latency 44 ms
+   over. That is a **Pareto choice for the operator**, not a defect to hide - the card's numbers were
+   set before the resolution lever was measured, and the deployment question ("is a 94 ms decision
+   acceptable, or a 94 % one?") is not a measurement question;
+3. **the margin-gate fixture is worse at every resolution**, which closes that line of thinking: it
+   was built to remove near-ties and it removes them by pushing objects to extremes, which costs two
+   segmentation failures per hundred and drags every setting down. v2 stays the fixture of record.
+
+**S10 status: accepted-with-a-declared-operating-point (recommended 384x384, 95/100, 94.0 ms), open
+only on the operator's acceptance of that trade.** The five residual misses at the knee are the band
+boundary and the same near-ties the margin gate failed to remove cleanly.
