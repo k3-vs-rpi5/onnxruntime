@@ -987,3 +987,29 @@ states the S10 design in the only order the data supports:
    decision maker;
 3. a larger VLM only if a decision-quality target cannot be met by (1) - and then measured on all 100
    scenes, not the 12-scene subsample this baseline used.
+
+### S10 second measurement: the perception prototype fails too, and the reasons are specific
+
+`tools/s10-cv-decision.py` (colour segmentation + 4-connected components + the four decision rules,
+pure numpy/PIL on the board) scored on all 100 scenes:
+
+| path | accuracy | segmentation failures | latency |
+|---|---|---|---|
+| VLM-only (fastvlm-0.5B, 12-scene subsample) | 3/12 (25 %) | 3 unparsed | 0.56 s |
+| **perception prototype (100 scenes)** | **23/100** | **45 scenes did not yield three objects** | **384 ms** |
+
+Neither path is acceptable, and the failure modes are concrete rather than mysterious:
+
+* the segmentation gate (`saturation > 40`) splits or merges regions around the shapes' anti-aliased
+  **black outlines** - in 45 scenes it returned two components instead of three, which is a
+  segmentation failure, not a decision failure;
+* the latency is pure-Python flood fill over 512x512 masks; a vectorised labelling or a smaller image
+  would remove it, and 384 ms is an artefact of the prototype, not a floor.
+
+So S10's card stays open with an explicit **target and a specification** rather than a number that
+flatters either path: accuracy >= 95 % on the 100 scenes with segmentation failures <= 2 %, decision
+latency <= 50 ms on the X100 (the decision layer is CPU work; the AI cluster is not needed for this
+task class), and both the VLM-only baseline (25 %) and this prototype (23 %) recorded as the
+*rejected* baselines they are. The next implementation step is the fixture's own attribute model:
+segment by nearest palette colour instead of a saturation threshold, label with a vectorised pass,
+and only then re-run the four rules.
