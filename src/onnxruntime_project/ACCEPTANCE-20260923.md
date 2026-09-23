@@ -23,7 +23,7 @@ evidence package behind it.
 | S9.3 | RAG, vendor stack | **driven, not accepted** | with the intended model: latency 1.8 s, **grounding 0/5** (fabricated values) | this document's §3 |
 | S10 | embodied decision | **accepted with a declared operating point** | resolution sweep: **256x256 = 94/100 at 45.7 ms** (latency met), **384x384 = 95/100 at 94.0 ms** (accuracy met), 512x512 no further gain; VLM-only baseline 3/12 | `s10-embodied-20260923/` |
 | S11 | photo album | **accepted** | NMI **0.881**, purity 0.865; same-video cosine 0.954 vs cross-video 0.470; verbatim duplicates **P/R 1.000** | `s11-natural-20260922/` |
-| S12 | document ingestion | **accepted** | printed CER **0.0001** (control), tables **0.0053** against tesseract 0.0188, scanned 0.0061; **3-5 pages/s** | `s12-fixture-20260922/` |
+| S12 | document ingestion | **accepted with one class outside its band** | printed CER **0.0001** (control, band <= 0.01 met), tables **0.0053** against tesseract 0.0188 (beats it), **scanned 0.0061 = 3.05x tesseract 0.0020, i.e. OUTSIDE the stated 1.5x band**; 3-5 pages/s | `s12-fixture-20260922/` |
 | S13 | audio | **not started** | - | - |
 
 ## 2. Optimisation results that back the verdicts
@@ -51,7 +51,11 @@ evidence package behind it.
    attributed. The latency target is met (46.6 ms) and both rejected baselines stay in the record
    (VLM-only 3/12; saturation-threshold prototype 23/100 with 45 segmentation failures).
 3. **OCR batch-4** as a lever: measured, negative, rejected.
-4. **S13 audio**: no measurement at all, so no claim.
+4. **S12 scanned class**: 0.0061 CER against tesseract's 0.0020 - **3.05x, outside the 1.5x band the card
+   states**. The first suite run caught this inconsistency in this very record (it had read "inside the
+   band"); the band is not being widened, the class is recorded as failing it, and the candidate causes
+   are the synthetic scan's noise profile and the recogniser's training mix.
+5. **S13 audio**: no measurement at all, so no claim.
 
 ## 4. Threats to validity
 

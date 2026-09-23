@@ -1216,3 +1216,25 @@ Three readings:
 **S10 status: accepted-with-a-declared-operating-point (recommended 384x384, 95/100, 94.0 ms), open
 only on the operator's acceptance of that trade.** The five residual misses at the knee are the band
 boundary and the same near-ties the margin gate failed to remove cleanly.
+
+## 16. The frozen scenario suite, and what its first full run caught
+
+`scripts/scenarios.sh` freezes the unattended scenarios behind one command (`list` shows the bands,
+`run` verifies materials, rebuilds, pushes the fixtures, runs the scenarios on the board and seals a
+fresh evidence package). First full run, 2026-09-23:
+
+| check | result | band | verdict |
+|---|---|---|---|
+| materials verify | 8 locked, 0 missing, 0 mismatched | - | pass |
+| build | `pipeline` `b836e876`, `ocr-chain` `539cbab…`, `embed-image` `f3ccd35…` | reproducible digests | pass |
+| board state before | 8/8 TCM blocks free | required | pass |
+| **S10** decision (384x384) | **accuracy 95/100, latency 94.0 ms** | >= 95/100, <= 160 ms | **pass at the declared operating point** |
+| **S12** printed | CER **0.0001** | <= 0.01 | pass |
+| **S12** tables | CER **0.0053** | <= 1.5x tesseract (0.0188) | pass (better than the reference) |
+| **S12** scanned | CER **0.0061** | <= 1.5x tesseract (0.0020) | **FAIL - 3.05x** |
+
+The suite's value showed immediately: it caught an inconsistency in our own acceptance record, which
+had read the scanned class as "inside the band" when the band the card states is 1.5x and the measured
+ratio is 3.05x. The band is **not** being widened; the class is recorded as failing it, with the
+candidate causes named (the synthetic scan's noise profile and the recogniser's training mix), and the
+acceptance record now carries the correction. That is the suite doing exactly what it was frozen for.

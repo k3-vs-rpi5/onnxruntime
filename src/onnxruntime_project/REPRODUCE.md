@@ -53,7 +53,7 @@ in this programme went through one of these two paths or the monitor's `board.sh
 
 | scenario | command (board side unless noted) | acceptance band |
 |---|---|---|
-| **S12** ingestion | `ocr-chain <det> <rec> <dict> pages/*.ppm -o out --threads 4 4` then host `tools/cer-wer.py <fixture> <out>` | printed CER <= 0.01 (tesseract reads 0.0000); scanned/tables within 1.5x of tesseract (0.0020 / 0.0188); >= 3 pages/s |
+| **S12** ingestion | `ocr-chain <det> <rec> <dict> pages/*.ppm -o out --threads 4 4` then host `tools/cer-wer.py <fixture> <out>` | printed CER <= 0.01 (met, 0.0001); tables <= 1.5x tesseract (met, 0.0053 vs 0.0188 - better); **scanned <= 1.5x tesseract (NOT met: 0.0061 vs 0.0020 = 3.05x, recorded as failing)**; >= 3 pages/s |
 | **S11** album | `embed-image <encoder> *.ppm --size 256 --norm clip -o emb.jsonl`, then host `tools/s11-metrics.py` | clustering NMI >= 0.8; verbatim duplicates: **exact-hash gate**, P/R 1.000; embedding gate explicitly rejected for duplicates |
 | **S10** decision | `python3 tools/s10-cv-decision.py <fixture> 100 <size>` | 384x384: accuracy >= 95 %, latency 94 ms (see the Pareto note in the acceptance record: 256x256 meets <= 50 ms with 94 %) |
 | **S9** RAG | board: `llama-server -m Bge-Small-Zh… -t 8 --embeddings --pooling mean` + `llama-server -m MiniCPM5-2B… -t 8`; `tools/rag-eval.py`, `rag-answer.py`, `rag-opt.py`, `rag-parallel.py` | recall@1 >= 0.98 on corpus-derived questions; TTFT < 3 s; citation correctness reported (16/20 measured); **enforce citation integrity outside the model** |
