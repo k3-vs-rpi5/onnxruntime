@@ -1082,3 +1082,34 @@ declared passed - and the two rejected baselines plus the two rejected variants 
 belongs on the **X100 in plain numpy** (46.6 ms, no AI cluster, no TCM), not on a 0.5B VLM (560 ms and
 25 %); and the perception rules must carry their constants *relative to the image size* - every one of
 the three bugs came from a hard-coded number.
+
+### S9.3 unblocked and driven end to end (the operator supplied the models)
+
+The blocker was a missing product component, and the operator's instruction to use the modelzoo
+download addresses closed it. The chain of evidence:
+
+1. the SDK's own catalogue defines `models/embed/` entries (nomic-embed-text-v2-moe,
+   Qwen3-Embedding-0.6B) but they were **not downloaded**, and the catalogue listing endpoint only
+   reports LLMs - which is why the earlier probe concluded "no embedding model";
+2. `POST /api/models/start_all` showed the real failure: *"Model file not found:
+   /var/lib/llm-sdk/models/embed/nomic-embed-text-v2-moe-Q4_0.gguf"*, and the LLM sub-server started
+   fine on 8051 while **no embed server was listening**;
+3. supplying a GGUF at that exact path (Qwen3-Embedding-0.6B copied under the expected filename, a
+   substitution that is recorded rather than hidden) brought the embed server up on **8052**, after
+   which the knowledge base actually vectorised: **13/38 files in four minutes** and still climbing
+   when the questions were asked;
+4. a session was created (`session=1`) and four Chinese questions were answered through
+   `/api/chat` with `kb_ids=["2"]`.
+
+**Answer quality in this first pass: 4/4 non-empty, 0/4 grounded.** The answers were generic or
+fabricated relative to our corpus (`"YOLO 是一种计算机视觉算法…"`, `"prefill 改善了 1-2 % 的性能"` -
+a number that appears nowhere; `"相册是存储照片的设备"`). Two candidate causes, both testable: the index
+was only ~34 % complete when the questions ran, and the retrieval may be finding nothing relevant in
+what was indexed. The honest reading is therefore *unblocked and driven, quality not yet measured* -
+and the follow-up is precise: wait for 38/38, re-ask the same questions with per-question latency
+(the first attempt lost its timings to a missing `bc` on the board), and score grounding the same way
+the self-chain was scored (does the answer cite or paraphrase a chunk that actually contains it).
+
+That makes the S9 comparison basis concrete for the first time: **self-chain** (recall 1.000/0.980,
+TTFT 2,226 ms, citations 16/20) against **vendor stack** (indexing ~38 files in ~10 minutes, answers
+to be scored on the same questions once indexing completes).
