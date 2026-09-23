@@ -181,8 +181,11 @@ kept with their causes.
 
 ## A5. Remaining, in order
 
-1. **S10 embodied decision** - 100 generated scenes with ground truth, a decision-latency budget, the
-   S7/S8 interference matrix re-used, `vla/` models optional.
+1. **S10 embodied decision** - **measured, one scene short of its accuracy target**: fixture v2 (100
+   labelled scenes, reading-order ground truth), four rejected variants and a perception path at
+   **94/100 with zero segmentation failures and 46.6 ms median** on the X100. The VLM-only baseline
+   (3/12, 560 ms) is recorded as the negative control it is. Remaining: attribute the six misses and
+   decide whether the 95 % target or the fixture's tolerance is the thing to adjust.
 2. **S13 audio** (optional) - vendor ASR against a board-built `whisper.cpp`.
 3. **S9 reference** - only if the vendor supplies an embedding model to the SDK (or a headless path
    for Zenow); the self-chain numbers stand meanwhile.

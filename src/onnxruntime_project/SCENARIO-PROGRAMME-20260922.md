@@ -1058,3 +1058,27 @@ in the record.
 
 The rule the pair teaches is worth keeping: for palette-based segmentation, **resampling method is part
 of the algorithm** - bilinear is for humans, nearest is for colour decisions.
+
+### S10 perception path: final state of the day
+
+Measured on all 100 scenes, pure numpy on the board:
+
+| variant | accuracy | segmentation failures | latency median |
+|---|---|---|---|
+| VLM-only (subsample of 12) | 3/12 | 3 unparsed | 560 ms |
+| saturation-threshold prototype | 23/100 | 45 | 384 ms |
+| palette, 512x512 | 95/100 | 0 | 163 ms |
+| palette, 256x256 bilinear | 32/100 | 29 | 49.7 ms |
+| palette, 256x256 nearest, centre+band hard-coded at 512 | 47-53/100 | 0 | 46-47 ms |
+| **palette, 256x256 nearest, size-relative constants** | **94/100** | **0** | **46.6 ms** |
+
+Three scale bugs were found in sequence, each by reading the failures rather than the code: the
+resampling method (bilinear blends palette colours), the centre used by the `nearest` rule, and the
+reading-order band. The card's latency target (<= 50 ms) is met; the accuracy target (>= 95 %) is
+**one scene short at 94/100**, so S10 stays open with six misses to attribute rather than being
+declared passed - and the two rejected baselines plus the two rejected variants remain in the record.
+
+**What S10 has established regardless of the last scene**: the decision layer for this task class
+belongs on the **X100 in plain numpy** (46.6 ms, no AI cluster, no TCM), not on a 0.5B VLM (560 ms and
+25 %); and the perception rules must carry their constants *relative to the image size* - every one of
+the three bugs came from a hard-coded number.

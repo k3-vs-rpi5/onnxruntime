@@ -47,14 +47,15 @@ def components(mask):
     return out
 
 
-def decide(objects, question):
+def decide(objects, question, size):
     if question == "leftmost":
         return min(objects, key=lambda o: o["x"])["order"]
     if question == "largest":
         return max(objects, key=lambda o: o["area"])["order"]
     if question == "reddest":
         return max(objects, key=lambda o: o["r"] - (o["g"] + o["b"]) / 2)["order"]
-    return min(objects, key=lambda o: (o["x"] - 256) ** 2 + (o["y"] - 256) ** 2)["order"]
+    c = size / 2
+    return min(objects, key=lambda o: (o["x"] - c) ** 2 + (o["y"] - c) ** 2)["order"]
 
 
 def main(argv):
@@ -90,10 +91,17 @@ def main(argv):
             objects.append({"x": float(xs.mean()), "y": float(ys.mean()), "area": area,
                             "r": float(colour[0]), "g": float(colour[1]), "b": float(colour[2])})
         # reading order defines the indices the question refers to
-        objects.sort(key=lambda o: (round(o["y"] / 120), o["x"]))
+        # Reading order uses a band that scales with the image (the fixture's own 120/512 ratio):
+        # a hard-coded 120 was the second scale bug - at 256x256 it grouped rows differently and
+        # mismatched the ground truth's indices.
+        band = img.shape[0] * 120.0 / 512.0
+        objects.sort(key=lambda o: (round(o["y"] / band), o["x"]))
         for i, o in enumerate(objects):
             o["order"] = i
-        got = decide(objects, question) if len(objects) == 3 else None
+        # The centre comes from the image size: leaving 256 hard-coded after the downscale to
+        # 256x256 sent every "nearest" scene to the wrong object (47/100 with zero segmentation
+        # failures - the failures were in the rule, not the perception).
+        got = decide(objects, question, img.shape[0]) if len(objects) == 3 else None
         hits += 1 if got == answer else 0
         if len(objects) != 3:
             rule_misses += 1
