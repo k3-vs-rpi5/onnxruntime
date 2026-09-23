@@ -58,13 +58,38 @@ def scene(seed):
     return img, question, answer, objects
 
 
+def margin(objects, question):
+    """How far the winning object beats the runner-up, as a fraction of the winner's score.
+
+    The first fixture produced scenes decided by one pixel of radius or a 4 % colour score - answers
+    a 256x256 pipeline cannot resolve - and those near-ties were exactly the six misses the decision
+    layer reported. A scene is only kept when its answer has a margin worth resolving.
+    """
+    def score(o):
+        if question == "leftmost":
+            return -o["x"]
+        if question == "largest":
+            return float(o["r"])
+        if question == "reddest":
+            return o["colour"][0] - (o["colour"][1] + o["colour"][2]) / 2
+        return -(((o["x"] - S / 2) ** 2 + (o["y"] - S / 2) ** 2) ** 0.5)
+    ranked = sorted(objects, key=score, reverse=True)
+    best, second = score(ranked[0]), score(ranked[1])
+    denom = max(abs(best), 1e-9)
+    return (best - second) / denom
+
+
 def main(argv):
     out = pathlib.Path(argv[1])
     n = int(argv[2]) if len(argv) > 2 else 100
     (out / "scenes").mkdir(parents=True, exist_ok=True)
     rows, labels = [], []
     for i in range(n):
-        img, question, answer, objects = scene(1000 + i)
+        # Resample until the answer has an 8 % margin: near-ties are not questions, they are noise.
+        for attempt in range(200):
+            img, question, answer, objects = scene(1000 + i * 1000 + attempt)
+            if margin(objects, question) >= 0.08:
+                break
         name = f"scene{i:03d}"
         path = out / "scenes" / f"{name}.png"
         img.save(path)

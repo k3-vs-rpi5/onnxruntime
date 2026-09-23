@@ -1166,3 +1166,27 @@ settles it is a single run: wait for the KB to report 38/38 vectorised chunks, a
 questions, and score grounding the same way. Until then, S9's acceptance rests on the **self-chain**
 (recall 1.000/0.980, TTFT 2.23 s, citations 16/20) and the vendor column is recorded as
 *driven-but-not-grounded, pending a complete index*.
+
+### S10 attribution: the misses are fixture near-ties and two residual segmentation cases
+
+The six misses of the 94/100 run were attributed by reading their ground-truth objects, and the
+pattern is unambiguous: they are decided by margins the pipeline cannot resolve - radius 55 against
+56 and 51 against 52 (a one-pixel difference), centre distances within a few pixels, a `reddest`
+score differing by 4 % between two palette entries, and objects straddling the reading-order band
+boundary. Distribution of the six: `largest` 2/21, `nearest` 2/29, `leftmost` 1/21, `reddest` 1/29.
+
+A fixture v3 was then built with an **8 % answer-margin gate** (resample until the winner beats the
+runner-up by 8 % of its own score), so that questions are decided by resolvable differences:
+
+| fixture | accuracy | segmentation failures | latency median |
+|---|---|---|---|
+| v2 (no margin gate) | 94/100 | 0 | 46.6 ms |
+| **v3 (8 % margin gate)** | **91/100** | **2** | 46.1 ms |
+
+The gate did not raise the score, which is itself the finding: the remaining errors are **not** the
+near-ties it removes - they are (a) two scenes where the palette segmentation still failed to yield
+three objects, and (b) decision-rule edge cases at the band boundary. S10 therefore stays **open**
+with the target missed by 4-9 scenes depending on the fixture, and the honest next step is not
+another fixture tweak but a **segmentation check** (report two-object scenes explicitly instead of
+counting them as wrong decisions) plus an explicit band-boundary rule (for example, compare objects
+that are within half a line-height by x only). Both are card-level changes, not research.
