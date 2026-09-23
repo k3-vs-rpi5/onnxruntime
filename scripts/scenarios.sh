@@ -43,9 +43,17 @@ run() {
     "$BOARD" push "$ROOT/build/bin/ocr-chain" /root/suite-ocr-chain >/dev/null
     "$BOARD" run 'ls /root/suite-s10/scenes/*.png | wc -l; spacemit-tcm-smi | sed -n 2p' | tee "$out/board-state.txt"
     echo "== 4/4 scenarios"
+    # Every scenario runs REPS times with the board monitor alongside; the verdict uses the median and
+    # the spread, and a monitor excursion marks the row incomparable - the fluctuation rule, applied
+    # mechanically rather than remembered.
+    REPS=${REPS:-3}
+    MON=$TOOLS/board-monitor.sh
+    "$BOARD" push "$MON" /root/board-monitor.sh >/dev/null
     # S10: decision layer at the declared operating point
-    "$BOARD" run 'cd /root && python3 /root/s10-cv-decision.py /root/suite-s10 100 384 2>&1 | tail -1' \
+    "$BOARD" run "chmod +x /root/board-monitor.sh; (/root/board-monitor.sh 90 2 $out/../mon-s10.csv s10 &); \
+cd /root && for r in \$(seq 1 $REPS); do python3 /root/s10-cv-decision.py /root/suite-s10 100 384 2>&1 | tail -1; done; sleep 3" \
         > "$out/s10.txt" 2>&1 || true
+    "$BOARD" pull /tmp/mon-s10.csv "$out/mon-s10.csv" >/dev/null 2>&1 || true
     # S12: OCR chain over the frozen page fixture (PPM pages already on the board from the S12 work)
     "$BOARD" run 'cd /root && mkdir -p suite-ocr-out && LD_LIBRARY_PATH=/tmp/ort206/lib ./suite-ocr-chain /root/alt-models/PP-OCRv6_tiny_det_640x640.fp16.onnx /root/alt-models/PP-OCRv6_tiny_rec_48x320.dynq.onnx /root/ppocrv6_tiny_dict.txt /root/s12-ppm/*.ppm -o suite-ocr-out --threads 4 4 2>&1 | tail -1' \
         > "$out/s12.txt" 2>&1 || true
@@ -60,6 +68,13 @@ run() {
         acc=$(grep -o 'accuracy=[0-9]*/[0-9]*' "$out/s10.txt" 2>/dev/null | head -1 || echo 'accuracy=?')
         lat=$(grep -o 'latency_median_ms=[0-9.]*' "$out/s10.txt" 2>/dev/null | head -1 || echo 'lat=?')
         echo "S10       $acc $lat"
+        if [ -f "$out/mon-s10.csv" ]; then
+            vals=$(grep -o 'accuracy=[0-9]*' "$out/s10.txt" | cut -d= -f2 | sed 's/^/s10=/')
+            # shellcheck disable=SC2086
+            python3 "$TOOLS/variance.py" $vals --band 95:100 --monitor "$out/mon-s10.csv" \
+                > "$out/s10-variance.txt" 2>&1 || true
+            sed 's/^/S10 var   /' "$out/s10-variance.txt"
+        fi
         grep -E '^(printed|scanned|tables)' "$out/s12-rates.txt" 2>/dev/null | sed 's/^/S12       /' || echo "S12       (rates unavailable)"
     } | tee "$out/verdicts.txt"
     echo "evidence: $out"

@@ -55,6 +55,9 @@ echo "== cross-compiling the image-embedding harness (S11)"
 "$cxx" -O2 -std=c++17 "$TOOLS/ort-embed-image.cpp" -o "$BUILD/bin/embed-image" \
     -I"$PKG/onnxrt" -L"$PKG/onnxrt" -lonnxruntime -ldl -lpthread
 
+echo "== cross-compiling the monitor (C, Rule 1 of TOOLING-RULES.md)"
+"$cxx" -O2 -std=c++17 "$TOOLS/board-monitor.c" -o "$BUILD/bin/board-monitor"
+
 echo "== generating the matrix probes (the instrument published in AI-CLUSTER-PEAK-20260922.md)"
 for size in 1024 2048 4096; do
     python3 "$TOOLS/make-ime-probe.py" "$BUILD/probes/ime-probe-$size.onnx" \
