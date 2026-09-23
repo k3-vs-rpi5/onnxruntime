@@ -957,3 +957,33 @@ S9 therefore stands on its own-chain numbers, with the reference column explicit
 missing product component rather than to a missing attempt. The recipe to close it later is one
 decision: supply an embedding model to this stack (the same BGE-Small-Zh GGUF the self-chain uses
 would make the comparison exact), or accept that the reference cannot be driven on this image.
+
+## 15. S10 execution log: the fixture, and the VLM-only baseline failing as designed
+
+**Fixture**: `tools/make-scene-fixture.py` generates 100 scenes (512x512, three coloured circles each)
+with deterministic ground truth - `leftmost`, `largest`, `reddest`, `nearest` - balanced across
+questions (29/29/21/21) and answers (29/36/35), plus `labels.tsv` carrying each object's colour,
+position and radius so a failure can be attributed to perception or to the decision. Sealed under
+`s10-embodied-20260923/` with a per-scene digest.
+
+**VLM-only baseline, measured (12-scene subsample of the 100, declared)**: the board's fastvlm-0.5B
+through its own server (`--media-backend smt`, image as a base64 data URI, one digit requested):
+
+| metric | value |
+|---|---|
+| decision accuracy | **3/12 (25 %)** |
+| unparsed answers (no digit at all) | 3/12 |
+| latency per decision | **0.56 s** median |
+
+This is the scenario's **negative control doing its job**: a 0.5B VLM cannot be the decision layer
+for spatial-attribute questions of this kind - it neither counts reliably nor grounds the question in
+the image, and a quarter of the time it does not answer in the requested form. The gate therefore
+states the S10 design in the only order the data supports:
+
+1. **perception-based decision** (detector boxes -> geometry/colour rules -> decision) as the primary
+   path, with the detector already measured at 9.41-9.54 ms and the box-level attributes this fixture
+   provides;
+2. the VLM as an **understanding layer** where it is strong (description, open questions), not as the
+   decision maker;
+3. a larger VLM only if a decision-quality target cannot be met by (1) - and then measured on all 100
+   scenes, not the 12-scene subsample this baseline used.
