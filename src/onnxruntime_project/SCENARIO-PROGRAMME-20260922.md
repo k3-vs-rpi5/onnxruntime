@@ -934,3 +934,26 @@ concrete options, in increasing cost: post-validate and strip citations whose in
 supplied range (a few lines, and it turns the metric from 14/20 into a *scored* contract), require a
 structured answer with a citation field validated against the source list, or move to a larger model
 and re-measure the same 20 questions. The gate stays open, with the failure mode now reproducible.
+
+### S9.3 conclusion: the vendor reference is installed and driven, and it cannot vectorise
+
+The corpus went into the vendor stack for real - not as a probe:
+
+* knowledge base created (`kb_id=2`, multipart form because JSON answers 422);
+* **38/38 files uploaded** and chunked by the vendor's own pipeline (14, 4, 2, ... chunks per file);
+* batch vectorisation requested through the documented endpoint and **accepted**: the API answered
+  `{"success":true,"queued_count":38,"skipped_count":0,"message":"38 个文件已加入向量化队列"}`;
+* and then **nothing happened**: 30 seconds later `vectorization/queue` is empty and
+  `sum(vectorized_chunks)` is **0 of 38**, twice, after a per-file attempt and after a batch attempt.
+
+The cause is the package composition recorded earlier: the SDK's model catalogue carries **four LLMs
+and no embedding or rerank model**, and the application that ships the LLM+Embed+Rerank trio
+(`zenow`) is a 570 MB Electron desktop build. So the reference path is *installed, running, and
+driven end to end up to the stage that has no model* - and the failure is **silent at the API level**
+(a queue that accepts work and drops it), which is itself a finding worth reporting to the vendor
+alongside the provider questions.
+
+S9 therefore stands on its own-chain numbers, with the reference column explicitly attributed to a
+missing product component rather than to a missing attempt. The recipe to close it later is one
+decision: supply an embedding model to this stack (the same BGE-Small-Zh GGUF the self-chain uses
+would make the comparison exact), or accept that the reference cannot be driven on this image.
