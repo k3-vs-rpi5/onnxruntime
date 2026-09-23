@@ -40,7 +40,8 @@ harness prints per-stage milliseconds; the instrument that measures must be meas
 +|---|---|---|
 +| shell version (fs reads + one `smi` + no `ps`) | **100-120 ms** | dominated by the `spacemit-tcm-smi` invocation |
 +| C version `tools/board-monitor.c` (`3d6805c9…`), `fast-ms 500`, `smi-every 4` | **31-40 ms** | ~3x better, **not yet microseconds**; the `popen` of `smi` every 4th sample plus six sysfs reads still dominate |
-+| target | <= 2 ms | reached by raising `smi-every` (block occupancy changes on second timescales) and batching the sysfs reads; both are configuration of the same tool |
++| **C, fast/slow split** (`4ec4823e…`) | **fast path 70 us mean / 108 us max**, slow path 39 ms once per 2 s | **target met**: the hardware-sensor and `smi` reads are amortised, the common sample is microseconds |
++| measured in the same window | PSI `some avg10` <= 0.2 %, thermal peak 34 C | the monitor no longer disturbs what it measures |
 +
 +Recorded rather than claimed: the rewrite is a 3x improvement and the remaining cost is named. The
 +rule that matters is already in force - the monitor is C, it never shells out to `ps`, and it prints

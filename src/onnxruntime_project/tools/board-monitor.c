@@ -2,10 +2,12 @@
 //
 //   board-monitor <seconds> <fast-interval-ms> <smi-every-n-samples> <out.csv> [tag]
 //
-// High-frequency samples read only /proc and /sys files (clocks, four thermal zones, load average,
-// CPU pressure stall information) - microseconds each - while the vendor `spacemit-tcm-smi` binary is
-// invoked only every Nth sample, because that call costs ~100 ms and the TCM block table changes
-// slowly. The tool prints its own mean cost per sample, so Rule 3 holds.
+// Measured on this board (2026-09-23): a sample that read only /proc files cost microseconds, while
+// reading the four thermal zones and the cpufreq nodes cost ~38 ms - those reads touch hardware
+// sensors, and they, not the vendor `smi`, were the whole cost. So the tool separates the two rates:
+// **fast** samples read /proc only (load average, CPU pressure) and are microseconds; **slow** samples
+// (every `smi-every`-th) add the thermal zones, the clocks and the vendor `smi`. The summary prints
+// both costs, so the interference the monitor adds is a number, not an assumption.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,24 +80,31 @@ int main(int argc, char **argv) {
 
     double t_end = now_ms() + seconds * 1000.0;
     int sample = 0, tcm_free = -1;
-    double cost_sum = 0, cost_max = 0;
+    double cost_sum = 0, cost_max = 0, fast_sum = 0, fast_max = 0, slow_sum = 0, slow_max = 0;
+    int slow_n = 0;
     for (;;) {
         double t0 = now_ms();
-        if (sample % smi_every == 0) read_tcm_free(&tcm_free);
-        double ai = 0, x100 = 0, tz[4] = {0, 0, 0, 0}, load1 = 0, psi = -1;
-        read_first_number("/sys/devices/system/cpu/cpu8/cpufreq/scaling_cur_freq", &ai);
-        read_first_number("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq", &x100);
-        for (int i = 0; i < 4; ++i) {
-            char path[64];
-            snprintf(path, sizeof path, "/sys/class/thermal/thermal_zone%d/temp", i);
-            read_first_number(path, &tz[i]);
-        }
+        if (sample % smi_every == 0) read_tcm_free(&tcm_free);  // smi and sensors share the slow rate
+        double load1 = 0, psi = -1;
         read_first_number("/proc/loadavg", &load1);
         read_psi_some_avg10(&psi);
+        int slow = (sample % smi_every) == 0;
+        double ai = 0, x100 = 0, tz[4] = {0, 0, 0, 0};
+        if (slow) {
+            read_first_number("/sys/devices/system/cpu/cpu8/cpufreq/scaling_cur_freq", &ai);
+            read_first_number("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq", &x100);
+            for (int i = 0; i < 4; ++i) {
+                char path[64];
+                snprintf(path, sizeof path, "/sys/class/thermal/thermal_zone%d/temp", i);
+                read_first_number(path, &tz[i]);
+            }
+        }
         double t1 = now_ms();
         double cost = t1 - t0;
         cost_sum += cost;
         if (cost > cost_max) cost_max = cost;
+        if (slow) { slow_sum += cost; if (cost > slow_max) slow_max = cost; ++slow_n; }
+        else { fast_sum += cost; if (cost > fast_max) fast_max = cost; }
         fprintf(csv, "%s,%ld,%d,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.2f,%.2f,%.0f\n", tag,
                 (long) time(NULL), tcm_free, ai, x100, tz[0], tz[1], tz[2], tz[3], load1,
                 psi < 0 ? 0 : psi, cost * 1000.0);
@@ -105,7 +114,11 @@ int main(int argc, char **argv) {
         usleep(fast_ms * 1000);
     }
     fclose(csv);
-    printf("samples=%d mean_cost_us=%.0f max_cost_us=%.0f tcm_free_last=%d\n",
-           sample, cost_sum / sample * 1000.0, cost_max * 1000.0, tcm_free);
+    int fast_n = sample - slow_n;
+    printf("samples=%d mean_cost_us=%.0f max_cost_us=%.0f fast_mean_us=%.0f fast_max_us=%.0f "
+           "slow_mean_us=%.0f slow_n=%d tcm_free_last=%d\n",
+           sample, cost_sum / sample * 1000.0, cost_max * 1000.0,
+           fast_n ? fast_sum / fast_n * 1000.0 : 0, fast_max * 1000.0,
+           slow_n ? slow_sum / slow_n * 1000.0 : 0, slow_n, tcm_free);
     return 0;
 }
