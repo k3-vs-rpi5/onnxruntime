@@ -133,3 +133,56 @@ chunk-overlap, one letter-gap cut).
 
 All packages carry a per-file sha256 registry with a self-check that comes out 0 mismatched /
 0 missing / 0 unlisted.
+
+---
+
+# Addendum, 2026-09-23: the first full results after S9-S12 execution
+
+## A1. S11 album - **accepted** (natural material)
+
+The scenario was blocked on material, the blocker was named, and the unlock was executed on the
+board: `ffmpeg` installed, **319 natural frames** sampled from the vendor's own 1080p sample videos
+(2 fps, 256x256, **7 groups**), 20 verbatim duplicates planted, and MobileCLIP2-S3 run through the
+C++ harness at **46.34 ms/image** on the AI cluster. Clustering NMI **0.881** / purity 0.865;
+same-video cosine 0.954 (min 0.281) against cross-video 0.470 (max 0.763) - the bands separate, which
+the two synthetic fixtures never managed. **Verbatim duplicates: precision and recall 1.000 with an
+exact-hash gate**, and the embedding gate is explicitly rejected for that job because consecutive
+frames 0.5 s apart are near-identical. Both synthetic fixtures are kept as the record of why
+synthetic material cannot carry this scenario.
+
+## A2. S9 RAG - stages measured, quality gate open, reference blocked
+
+| stage | metric | result |
+|---|---|---|
+| retrieval | chunks / embedding cost | 2,226 from 38 files (531 KB), **17.7 ms/chunk** |
+| retrieval | recall@1/5/10, verbatim / shuffled control | **1.000 / 0.980** |
+| answer | TTFT median (P90) | 2,226 ms (3,887 ms) |
+| answer | citation correct | **16/20** (first prompt), **14/20** (stricter prompt - worse) |
+| answer | non-empty | 20/20 |
+| reference | vendor `llm-sdk` | installed and driven: kb created, **38/38 uploaded and chunked**, batch vectorisation **accepted then silently dropped** - 0/38 vectorised, because the catalogue has no embedding model and the app that ships one is GUI-only |
+
+## A3. Optimisation strategy, measured (the operator's parallel/invocation axis)
+
+| lever | effect | verdict |
+|---|---|---|
+| decode under N slots | 6.13 -> 7.88 -> **9.43 t/s** (1/2/4) | **use slots** (+53.8 %) |
+| prefill under N slots | 5.35 -> 10.4 -> 18-20 s | does *not* parallelise |
+| retrieved context 1 -> 4 chunks | TTFT 914 -> **2,592 ms** | **keep k small** |
+| prefix caching, verified | `prompt_n` 121 -> 1, prefill 1,037 -> **78 ms** | **cache only genuinely repeated prefixes**; read `prompt_n` per request |
+| embedding, concurrent clients | 51.2 -> 55.2 chunks/s | +7.7 %: feed it as one stream |
+| OCR batch-4 recogniser | whole page 213-316 -> **650-904 ms** | **rejected** (-70 %) |
+| stricter citation prompt | 16/20 -> **14/20** | citation integrity must be enforced *outside* a 2B model |
+
+## A4. S12 ingestion - accepted (unchanged)
+
+Printed CER **0.0001** (negative control, band <= 0.01), tables **0.0053 against tesseract's 0.0188**,
+scanned 0.0061 inside the stated band; **3-5 pages/s** on the AI cluster; five failed or invalid runs
+kept with their causes.
+
+## A5. Remaining, in order
+
+1. **S10 embodied decision** - 100 generated scenes with ground truth, a decision-latency budget, the
+   S7/S8 interference matrix re-used, `vla/` models optional.
+2. **S13 audio** (optional) - vendor ASR against a board-built `whisper.cpp`.
+3. **S9 reference** - only if the vendor supplies an embedding model to the SDK (or a headless path
+   for Zenow); the self-chain numbers stand meanwhile.
