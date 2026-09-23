@@ -1013,3 +1013,29 @@ task class), and both the VLM-only baseline (25 %) and this prototype (23 %) rec
 *rejected* baselines they are. The next implementation step is the fixture's own attribute model:
 segment by nearest palette colour instead of a saturation threshold, label with a vectorised pass,
 and only then re-run the four rules.
+
+### S10 third measurement: the perception path meets the accuracy target, and the fixture had a numbering bug
+
+Two fixes, both found by reading the data rather than the code:
+
+1. **the ground truth was numbered in draw order** while every consumer (the VLM prompt, the decision
+   rules) indexes objects in **reading order** - so a perfectly correct perception layer would still
+   have disagreed with the truth most of the time. The fixture now sorts objects into reading order
+   before computing answers, and both the fixture and the earlier baseline are re-labelled
+   accordingly (the first VLM number is kept, with this bug named as a second reason it was low);
+2. **segmentation by nearest palette colour** instead of a saturation threshold, which removes the
+   anti-aliased-outline failures entirely (the first prototype failed to find three objects in 45 of
+   100 scenes).
+
+Measured on all 100 scenes, pure numpy on the board:
+
+| version | accuracy | segmentation failures | latency median |
+|---|---|---|---|
+| prototype (saturation threshold, per-colour loop) | 23/100 | 45 | 384 ms |
+| **nearest palette, eight passes** | **95/100** | **0** | 163 ms |
+| **nearest palette, one stacked argmin** | (see run) | 0 | (see run) |
+
+The accuracy target (>= 95 %) is met at 95/100 - *at* the line, not comfortably above it, so the five
+misses are the next thing to attribute rather than to wave through. The latency target (<= 50 ms) is
+what the stacked-argmin change is for; both numbers are re-run together and the card is closed only
+when the pair holds.

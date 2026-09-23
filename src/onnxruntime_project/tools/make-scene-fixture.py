@@ -39,6 +39,13 @@ def scene(seed):
         y = rng.randint(r + 5, S - r - 5)
         d.ellipse([x - r, y - r, x + r, y + r], fill=colour, outline=(0, 0, 0), width=2)
         objects.append({"id": i, "colour": colour, "x": x, "y": y, "r": r})
+    # Ground truth is expressed in *reading order* (left to right, top to bottom), because that is the
+    # numbering every consumer uses - the VLM prompt says so and the decision rules index objects the
+    # same way. The first version answered in draw order, so a correct perception layer would have
+    # disagreed with the truth 60 % of the time; the mismatch is recorded in the programme document.
+    objects.sort(key=lambda o: (round(o["y"] / 120), o["x"]))
+    for idx, o in enumerate(objects):
+        o["id"] = idx
     question = rng.choice(["leftmost", "largest", "reddest", "nearest"])
     if question == "leftmost":
         answer = min(objects, key=lambda o: o["x"])["id"]
