@@ -1113,3 +1113,30 @@ the self-chain was scored (does the answer cite or paraphrase a chunk that actua
 That makes the S9 comparison basis concrete for the first time: **self-chain** (recall 1.000/0.980,
 TTFT 2,226 ms, citations 16/20) against **vendor stack** (indexing ~38 files in ~10 minutes, answers
 to be scored on the same questions once indexing completes).
+
+### S9.3 final numbers, with the caveat that decides how they may be read
+
+Five questions whose answers are *specific numbers in our corpus* were put to the vendor stack
+(`/api/chat`, `kb_ids=["2"]`, session 1), so grounding is decidable rather than a matter of taste:
+
+| question (expected value) | answer | grounded | latency |
+|---|---|---|---|
+| AI cluster ceiling (2754 GOPS) | "GOPS is a measurement of AI performance, typically used in the context of neural..." | no | 96.5 s |
+| S12 printed CER (0.0001) | "CER值为 359.67。" | no | 38.3 s |
+| yolov8n 8x1 throughput (146.62 inf/s) | "YoloV8N (8X1) 的吞吐量为 256 INF/S。" | no | 67.1 s |
+| prefix-cache prefill (1037 -> 78 ms) | "前缀缓存将预填充时间从60ms降至30ms。" | no | 41.0 s |
+| album clustering NMI (0.881) | "NMI ... 具体数值取决于数据和聚类算法的具体实现。" | no | 97.0 s |
+
+**grounded 0/5, latency median 67.1 s**, against the self-chain's **recall 1.000/0.980, TTFT 2.23 s,
+total 9.4 s, citations 16/20** - and the vendor stack was still indexing (31/38) when asked.
+
+**The caveat that must travel with these numbers**: the vendor stack was run with a **substituted
+embedding model** (Qwen3-Embedding-0.6B copied under the nomic filename, because the nomic download
+address did not fetch). Its retrieval configuration was written for nomic's vector space, so the 0/5
+cannot be attributed to the vendor's product as shipped - it is the result of *our* substitution on
+top of *their* pipeline, and the fabricated numbers may come from retrieval returning nothing, from a
+vector-space mismatch, or from the LLM ignoring context, and this measurement cannot separate those.
+What can be said without qualification: the pipeline *runs* end to end (index -> session -> grounded
+answer call), indexing 38 files takes minutes rather than the self-chain's 39.5 s for 2,226 chunks,
+and answer latency is 38-97 s against 2.2 s TTFT. The next step to make the comparison fair is one
+download: the nomic model from a reachable mirror, then the same five questions.
