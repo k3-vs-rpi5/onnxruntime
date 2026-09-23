@@ -1140,3 +1140,29 @@ What can be said without qualification: the pipeline *runs* end to end (index ->
 answer call), indexing 38 files takes minutes rather than the self-chain's 39.5 s for 2,226 chunks,
 and answer latency is 38-97 s against 2.2 s TTFT. The next step to make the comparison fair is one
 download: the nomic model from a reachable mirror, then the same five questions.
+
+### S9.3 with the real nomic model: latency artefact identified, grounding still zero
+
+The genuine `nomic-embed-text-v2-moe-Q4_0.gguf` (324,158,432 bytes, sha256 `c15fd36aa079618c...`)
+was fetched from the hf-mirror address and installed at the path the SDK expects; the embed server
+came up and a fresh knowledge base was built and asked the same five numeric questions:
+
+| run | embedding model | grounded | latency median |
+|---|---|---|---|
+| first | Qwen3-Embedding substituted under the nomic filename | 0/5 | **67.1 s** |
+| **second** | **real nomic-embed-text-v2-moe** | **0/5** | **1.8 s** |
+
+Two conclusions, one of them a correction of our own earlier reading: the 38-97 s answer latency was
+an **artefact of the substitution** (a model the SDK's retrieval was not written for), not a property
+of the vendor stack - with the intended model the same calls return in 1.8 s. And the grounding
+failure **survives the substitution fix**: the answers are still fabricated against our corpus
+("CER为12", "3200 inf/s", "NMI 为 1", "GOPS ... 100-200"), so at this point the vendor stack returns
+plausible-sounding text that does not come from our documents.
+
+The one caveat still open, stated because it is the only thing that could soften this: indexing was
+incomplete when the questions ran (the progress counter was not read correctly in this pass, and the
+vendor's own uploader had reported 0/38 vectorised 30 seconds after queueing). The measurement that
+settles it is a single run: wait for the KB to report 38/38 vectorised chunks, ask the same five
+questions, and score grounding the same way. Until then, S9's acceptance rests on the **self-chain**
+(recall 1.000/0.980, TTFT 2.23 s, citations 16/20) and the vendor column is recorded as
+*driven-but-not-grounded, pending a complete index*.
