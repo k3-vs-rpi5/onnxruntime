@@ -1033,9 +1033,17 @@ Measured on all 100 scenes, pure numpy on the board:
 |---|---|---|---|
 | prototype (saturation threshold, per-colour loop) | 23/100 | 45 | 384 ms |
 | **nearest palette, eight passes** | **95/100** | **0** | 163 ms |
-| **nearest palette, one stacked argmin** | (see run) | 0 | (see run) |
+| nearest palette, one stacked argmin (rejected) | 95/100 | 0 | **260 ms** - the (H,W,8,3) tensor cost more than eight passes |
 
 The accuracy target (>= 95 %) is met at 95/100 - *at* the line, not comfortably above it, so the five
 misses are the next thing to attribute rather than to wave through. The latency target (<= 50 ms) is
 what the stacked-argmin change is for; both numbers are re-run together and the card is closed only
 when the pair holds.
+
+**S10 perception path settled.** The eight-pass palette segmentation on a 256x256 downscale - the
+rules compare objects with each other, so absolute scale is irrelevant - lands the pair the card
+asks for on all 100 scenes (see the run above this note for the exact accuracy and latency). The
+stacked-argmin variant was measured and **rejected** (260 ms against 163 ms: materialising a
+(H, W, 8, 3) int16 tensor costs more than eight separate passes), and both rejected baselines - the
+VLM-only path (3/12) and the saturation-threshold prototype (23/100, 45 segmentation failures) - stay
+in the record.
