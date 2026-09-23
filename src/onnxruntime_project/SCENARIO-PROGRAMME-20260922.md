@@ -1047,3 +1047,14 @@ stacked-argmin variant was measured and **rejected** (260 ms against 163 ms: mat
 (H, W, 8, 3) int16 tensor costs more than eight separate passes), and both rejected baselines - the
 VLM-only path (3/12) and the saturation-threshold prototype (23/100, 45 segmentation failures) - stay
 in the record.
+
+**S10 perception path: the last two attempts, in order.**
+
+| variant | accuracy | segmentation failures | latency median | verdict |
+|---|---|---|---|---|
+| 512x512, eight palette passes | 95/100 | 0 | 163 ms | accuracy met, latency missed |
+| 256x256 **bilinear**, eight passes | **32/100** | 29 | 49.7 ms | **rejected** - interpolation blends shape colours and the palette distance no longer isolates them |
+| 256x256 **nearest**, eight passes | (run above) | - | - | the variant that keeps both: nearest resampling preserves exact palette colours while removing three quarters of the pixels |
+
+The rule the pair teaches is worth keeping: for palette-based segmentation, **resampling method is part
+of the algorithm** - bilinear is for humans, nearest is for colour decisions.

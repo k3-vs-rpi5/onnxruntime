@@ -68,12 +68,12 @@ def main(argv):
     for name in sorted(labels)[:limit]:
         question, answer = labels[name]
         t0 = time.time()
-        # Downscale to 256x256 first: the rules compare objects with each other (leftmost, largest,
-        # reddest, nearest), so absolute pixel scale does not matter, and the work drops 4x. The
-        # stacked-argmin experiment was reverted - building a (H, W, 8, 3) tensor cost more than the
-        # eight separate passes it replaced (260 ms against 163 ms).
+        # Downscale with NEAREST: the palette segmentation depends on pixels keeping their exact
+        # colour, and bilinear interpolation blends shape edges into in-between colours - that cost
+        # the accuracy target (32/100 with 29 segmentation failures at 256x256 bilinear against
+        # 95/100 and zero at full scale). Nearest keeps the colours and still removes 3/4 of the work.
         img = np.asarray(Image.open(root / "scenes" / f"{name}.png").convert("RGB")
-                         .resize((256, 256), Image.BILINEAR), dtype=np.int16)
+                         .resize((256, 256), Image.NEAREST), dtype=np.int16)
         # Segment by *nearest palette colour* instead of a saturation threshold: the fixture draws the
         # shapes from a fixed palette, so each shape is exactly one mask and the anti-aliased black
         # outline (which broke the first prototype) falls outside every colour's radius. No connected
