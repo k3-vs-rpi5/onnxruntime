@@ -47,15 +47,25 @@ run() {
     # the spread, and a monitor excursion marks the row incomparable - the fluctuation rule, applied
     # mechanically rather than remembered.
     REPS=${REPS:-3}
+    # The two sessions' AI threads. Four and four is the accepted shape on a board whose model path is
+    # sound at any thread count; a board that corrupts above four AI threads per process
+    # (k3-evidence/onnxruntime/board-215-ai-thread-cap-20260925) declares two and two here instead,
+    # and the row it produces is then a declared deviation, not the accepted shape.
+    DET_THREADS=${ONNX_DET_THREADS:-4}
+    REC_THREADS=${ONNX_REC_THREADS:-4}
     MON=$TOOLS/board-monitor.sh
     "$BOARD" push "$MON" /root/board-monitor.sh >/dev/null
     # S10: decision layer at the declared operating point
-    "$BOARD" run "chmod +x /root/board-monitor.sh; (/root/board-monitor.sh 90 2 $out/../mon-s10.csv s10 &); \
+    # The monitor writes on the board; a host path here would be expanded into a board command, the
+    # write would fail inside the backgrounded subshell and the pull below would silently adopt
+    # whatever /tmp/mon-s10.csv last held - a stale window reads as a clean one.
+    "$BOARD" run "chmod +x /root/board-monitor.sh; rm -f /tmp/mon-s10.csv; \
+(/root/board-monitor.sh 90 2 /tmp/mon-s10.csv s10 &); \
 cd /root && for r in \$(seq 1 $REPS); do python3 /root/s10-cv-decision.py /root/suite-s10 100 384 2>&1 | tail -1; done; sleep 3" \
         > "$out/s10.txt" 2>&1 || true
     "$BOARD" pull /tmp/mon-s10.csv "$out/mon-s10.csv" >/dev/null 2>&1 || true
     # S12: OCR chain over the frozen page fixture (PPM pages already on the board from the S12 work)
-    "$BOARD" run 'cd /root && mkdir -p suite-ocr-out && LD_LIBRARY_PATH=/tmp/ort206/lib ./suite-ocr-chain /root/alt-models/PP-OCRv6_tiny_det_640x640.fp16.onnx /root/alt-models/PP-OCRv6_tiny_rec_48x320.dynq.onnx /root/ppocrv6_tiny_dict.txt /root/s12-ppm/*.ppm -o suite-ocr-out --threads 4 4 2>&1 | tail -1' \
+    "$BOARD" run "cd /root && mkdir -p suite-ocr-out && rm -f suite-ocr-out/*.txt && LD_LIBRARY_PATH=/tmp/ort206/lib ./suite-ocr-chain /root/alt-models/PP-OCRv6_tiny_det_640x640.fp16.onnx /root/alt-models/PP-OCRv6_tiny_rec_48x320.dynq.onnx /root/ppocrv6_tiny_dict.txt /root/s12-ppm/*.ppm -o suite-ocr-out --threads $DET_THREADS $REC_THREADS 2>&1 | tail -1" \
         > "$out/s12.txt" 2>&1 || true
     "$BOARD" pull /root/suite-ocr-out "$out/ocr-out" >/dev/null 2>&1 || true
     for d in "$out/ocr-out" "$out/ocr-out/suite-ocr-out"; do
