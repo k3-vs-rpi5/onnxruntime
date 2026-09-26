@@ -58,6 +58,9 @@ echo "== cross-compiling the image-embedding harness (S11)"
 echo "== cross-compiling the monitor (C, Rule 1 of TOOLING-RULES.md)"
 "$cxx" -O2 -std=c++17 "$TOOLS/board-monitor.c" -o "$BUILD/bin/board-monitor"
 
+echo "== cross-compiling the process inspector (memory + huge pages)"
+"$cxx" -O2 -std=c++17 "$TOOLS/proc-mem-inspect.c" -o "$BUILD/bin/proc-mem-inspect"
+
 echo "== generating the matrix probes (the instrument published in AI-CLUSTER-PEAK-20260922.md)"
 for size in 1024 2048 4096; do
     python3 "$TOOLS/make-ime-probe.py" "$BUILD/probes/ime-probe-$size.onnx" \
