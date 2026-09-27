@@ -1,9 +1,9 @@
 #!/bin/sh
 # Fetch and verify every material the acceptance scenarios need - models, fixtures, corpora, tools.
 #
-#   scripts/materials.sh fetch    download/generate anything missing, then refresh materials.lock
-#   scripts/materials.sh verify    check every locked item (digest + size); non-zero on any problem
-#   scripts/materials.sh list      show what each scenario needs and where it comes from
+#   scripts/run.sh materials fetch    download/generate anything missing, then refresh materials.lock
+#   scripts/run.sh materials verify   check every locked item (digest + size); non-zero on any problem
+#   scripts/run.sh materials list     show what each scenario needs and where it comes from
 #
 # The lock file (`materials.lock`) is written by `fetch` and is the authority for `verify`: a fresh
 # machine can rebuild the whole test setup with one command, and a changed upstream file is caught
@@ -12,7 +12,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname "$0")" && pwd)
-ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)
+ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/../.." && pwd)
 WORKSPACE=$(CDPATH='' cd -- "$ROOT/../.." && pwd)
 TOOLS=$ROOT/src/onnxruntime_project/tools
 M=${ONNX_MATERIALS:-$WORKSPACE/.local/materials}
@@ -74,7 +74,7 @@ fetch() {
         fi
     done
     : > "$LOCK"
-    echo "# materials.lock - written by scripts/materials.sh fetch; verify with 'materials.sh verify'" >> "$LOCK"
+    echo "# materials.lock - written by 'scripts/run.sh materials fetch'; verify with 'scripts/run.sh materials verify'" >> "$LOCK"
     find "$M" -type f ! -name '*.part' | sort | while read -r f; do
         printf '%s  %s\n' "$(sha256sum "$f" | cut -d' ' -f1)" "${f#$M/}" >> "$LOCK"
     done

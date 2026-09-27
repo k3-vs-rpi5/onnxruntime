@@ -11,6 +11,10 @@
 #       the AI-cluster ceiling instrument (three probes, 1/2/4/8 threads, three rounds each)
 #   scripts/run.sh instrument <board-script> [args...]
 #       deliver and run any instrument from src/onnxruntime_project/tools and pull its output
+#   scripts/run.sh materials fetch|verify|list
+#       fetch and verify every material the scenarios need (models, fixtures, corpora, tools)
+#   scripts/run.sh scenarios list|run
+#       the frozen scenario suite: bands, the unattended run, and its sealed evidence
 #
 # Evidence lands in $ONNX_EVIDENCE/<workflow>-<UTC>/ and is printed at the end. Nothing is written
 # into the project tree by a run.
@@ -61,6 +65,16 @@ case "${1:-}" in
         echo "verify: build/ matches SHA256SUMS"
         ;;
 
+    materials)
+        shift
+        exec sh "$ROOT/src/onnxruntime_project/materials.sh" "$@"
+        ;;
+
+    scenarios)
+        shift
+        exec sh "$ROOT/src/onnxruntime_project/scenarios.sh" "$@"
+        ;;
+
     smoke)
         ev=$(new_evidence smoke)
         echo "== smoke: deliver $BUILD/bin/pipeline and run one 8-thread session"
@@ -108,7 +122,7 @@ case "${1:-}" in
         ;;
 
     *)
-        echo "usage: scripts/run.sh verify|smoke|ime-probe|instrument <board-script> [args...]" >&2
+        echo "usage: scripts/run.sh verify|smoke|ime-probe|instrument <board-script> [args...]|materials fetch|verify|list|scenarios list|run" >&2
         exit 2
         ;;
 esac

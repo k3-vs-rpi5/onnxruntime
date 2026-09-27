@@ -56,7 +56,7 @@ package identity, and the documented entry points we are allowed to use.
   own metrics gate fails because the streaming paths are not counted), and an
   independent confirmation that a vendor-published dynq encoder lands on the slow
   fp32 path (2.10 s at 224 sq on 4 AI cores). `OPTIMISATION-20260921.md` measures
-  the deployment shape: batching pays 1.41-1.47x per frame on a CNN, concurrency
+  the deployment shape: batching pays 1.41-1.47 times per frame on a CNN, concurrency
   inside one 8-thread session saturates at ~110 inf/s (extra streams only add
   latency, splitting the cores costs -36 %), and the two clusters tax each other
   by 10-25 % in both directions - with one invalid capture kept as such because
@@ -65,7 +65,7 @@ package identity, and the documented entry points we are allowed to use.
   vendor's own pipeline harness (pre- and post-processing together are 1-5 % of a
   frame, which closes OpenCL pre-processing on measurement rather than taste) and
   settles a method question with numbers: the published matrix command's `-x 1`
-  under-prices a graph whose EP claims only part of its nodes by **2.32x**, with
+  under-prices a graph whose EP claims only part of its nodes by **2.32 times**, with
   the named CPU-fallback nodes, the TCM samples and the provider's own trace
   agreeing three ways.
   `METHOD-ALIGNMENT-20260921.md` §7 closes the two rows that never reconciled. For
@@ -85,8 +85,8 @@ package identity, and the documented entry points we are allowed to use.
   SigLIP2 encoder 0.6 % across 209 node executions.
   `VLM-SERVICE-SHAPE-20260921.md` asks the same question of the VLM service and
   gets the opposite answer: simultaneous requests share one pass over the weights,
-  so four concurrent decode streams give **2.91x** aggregate for -19 % per stream,
-  the image path reaches 1.77x because the vision stage re-encodes every frame and
+  so four concurrent decode streams give **2.91 times** aggregate for -19 % per stream,
+  the image path reaches 1.77 times because the vision stage re-encodes every frame and
   contends for the same eight cores, and the encoder's width (one line in the
   model's `config.json`) is worth 14 % of aggregate at that load.
   Section 5 of that document tries the three ways to take the vision stage off the
@@ -100,19 +100,19 @@ package identity, and the documented entry points we are allowed to use.
   is flat to +-1 %.
   Section 7 adds the VLM category's second model, the vendor's Qwen3.5-0.8B
   package: every round-7 direction generalises with smaller magnitudes (text decode
-  2.91x -> 1.88x at four simultaneous requests, image path 1.77x -> 1.34x, encoder
+  2.91 times -> 1.88 times at four simultaneous requests, image path 1.77 times -> 1.34 times, encoder
   width worth 52.6 ms of time to first token instead of 87.3 ms), and the published
   row for this model matches no candidate statistic at all - our encoder-only
   number is 25-29 % faster than the row while time to first token is 22-47 %
   slower - which confirms acceptance rule R10 on a second model. Two operational
-  traps came with it: the Qwen3.5 family needs `--reasoning-budget 0 --reasoning
-  off` or every answer is empty while tokens are counted, and the served
+  traps came with it: the Qwen3.5 family needs `--reasoning-budget 0 --reasoning off`
+  or every answer is empty while tokens are counted, and the served
   `image prefill` stage does not move with the encoder width in either model.
   Section 8 decomposes that stage with instruments already in hand: the server's
   own execution-provider trace (`SPACEMIT_EP_DEBUG_PROFILE` inside the server) shows
   one ~195 ms encoder run per request, a text-only control prices a prompt token at
-  6.6-7.1 ms, and the 224/384 resolution pair fits `stage ~= encoder + 4.7 ms per
-  image token` (384²: 162 tokens, 969 ms; 224²: 67 tokens, 367 ms). The per-image
+  6.6-7.1 ms, and the 224/384 resolution pair fits `stage ~= encoder + 4.7 ms per image token`
+  (384²: 162 tokens, 969 ms; 224²: 67 tokens, 367 ms). The per-image
   cost is therefore set by the image's token count, not by the encoder - the
   encoder is 20 % of the stage - which makes the resolution variant the lever and
   the encoder's thread count nearly irrelevant to it.
@@ -197,8 +197,8 @@ package identity, and the documented entry points we are allowed to use.
   logic - **query first, then act** - with evidence in three grades (documented
   constraint, cross-model claimed/refused evidence, vendor example code) and a probe
   permitted only to confirm a derived rule, never to fish. Its evidence registry is the
-  result of that discipline: `Resize` nearest+asymmetric is claimed everywhere;
-  linear+half_pixel is claimed **inside a QDQ graph** (`pp_liteseg`, 7/7, verifiable in
+  result of that discipline: `Resize` `nearest+asymmetric` is claimed everywhere;
+  `linear+half_pixel` is claimed **inside a QDQ graph** (`pp_liteseg`, 7/7, verifiable in
   the provider's own subgraph dump) but refused as a standalone fp32/fp16 node; and the
   natural Gather-based replacement **segfaults the provider** while every one of its
   primitives passes in isolation - a robustness finding in its own right. Four candidate
@@ -255,7 +255,7 @@ package identity, and the documented entry points we are allowed to use.
   `Reshape/MatMul/Reshape` (1.79e-07) and the fallback does disappear (12 -> 7 CPU node
   executions, 37.9 % -> 0.1 %) - and the frame goes **157.55 -> 544.35 ms**, because the
   provider's `MatMul` path costs ~405 ms/frame against the CPU EP's 58.9 ms for the same
-  arithmetic: **6.9x slower, 1.7 GOPS effective**. `superpoint`'s single `ReduceL2`
+  arithmetic: **6.9 times slower, 1.7 GOPS effective**. `superpoint`'s single `ReduceL2`
   (0.434 ms) lowers to a bit-identical `Sqrt(ReduceSum(x*x))` and the provider **segfaults
   in the first inference** after a successful session init, with primitives, shape, dtype
   context and axis all excluded by probes - recorded as **blocked-unexplained**, with the
@@ -286,7 +286,7 @@ package identity, and the documented entry points we are allowed to use.
   deployment rule: the AI cores are allocated **per session** (8+8 is refused with
   "required 8, available 0", and `SPACEMIT_EP_USE_GLOBAL_INTRA_THREAD` does not lift it),
   so two sessions must split 4+4; and overlapped 4+4 gives **43.10 fps against 27.76
-  serialised (1.55x)** with only +9.0 %/+5.5 % stage cost, which is also **5.7 % better than
+  serialised (1.55 times)** with only +9.0 %/+5.5 % stage cost, which is also **5.7 % better than
   running the two models alternately at 8 cores** - so the earlier "one process, stages
   serialised" rule becomes **one process, two sessions, cores 4+4, stages overlapped**. TCM
   sampled during the run shows the eight blocks split between two thread groups, four each.
@@ -334,9 +334,9 @@ package identity, and the documented entry points we are allowed to use.
   (the form the provider's own models use - ONNX's `MatMul` refuses `int8`) was run through the
   vendor's `perf_test` option set at 1/2/4/8 threads over three sizes, three rounds each. The
   measured ceiling is **2754 GOPS (2.75 TOPS) at eight threads** - 18.4 % of the quoted ~15 TOPS and
-  75 % of the K1 `cpufp` figure clock-scaled to this board - with **one TCM block per compute
+  75 % of the K1 `cpufp` figure clock-scaled to this board (3.68 TOPS) - with **one TCM block per compute
   thread** (1/2/4/8) and the workload's pid named in every sample; one core alone reaches 893 GOPS,
-  1.94x the clock-scaled K1 per-core number. The largest probe is *slower per FLOP* than the middle
+  1.94 times the clock-scaled K1 per-core number. The largest probe is *slower per FLOP* than the middle
   one, so the QDQ path is limited by data movement rather than matrix throughput, and `yolov8n`'s
   912 GOPS end-to-end is 33 % of what the provider itself delivers on pure matrix work. Two probe
   forms that failed first (int8 `MatMul`, refused by the runtime's checker; constant activation,
@@ -348,8 +348,8 @@ package identity, and the documented entry points we are allowed to use.
   decomposition landing within **0.4 %** of their published total on both models. The same sweep
   also produced two instrument corrections (`setsid` makes `$!` the wrapper's pid; the TCM table's
   PID column can name a thread of the workload) and vendor question 6: session creation failed
-  twice at random, after clean rounds of the identical command, with `SpacemiT EP init: Provider
-  options key/value cannot be empty`.
+  twice at random, after clean rounds of the identical command, with
+  `SpacemiT EP init: Provider options key/value cannot be empty`.
   `VLM-ACCEPTANCE-BASIS-20260922.md` is the third item: the contract that replaces the vendor's
   unnamed VLM cell with **seven named statistics** (encoder-only latency, time to first token,
   end-to-end, cache/per-new-frame cost, multi-slot aggregate, text decode, quality gate), the five
@@ -364,7 +364,7 @@ package identity, and the documented entry points we are allowed to use.
   comparison in its strongest form: the vendor's own application (their documented source repo
   404s, so the apt package `yolo-demo` 1.0.2 was used) reproduces its published 12-stream totals on
   this board **within ±2.6 %** (`yolov8n` 130.85 FPS shipped config, 136.92 with their own
-  decode-throttle note; `yolov8s` 79.15) - and its shipped config is `num_sessions: 8`,
+  `decode_fps` throttle note; `yolov8s` 79.15) - and its shipped config is `num_sessions: 8`,
   `intra_threads: 1`, the throughput rule this project measured from the outside.
   `SCENARIO-VALIDATION-20260922.md` writes down the **scenario testing and validation scheme** (a
   five-step ladder, five scenario classes with their anchors, the evidence contract, the rules of
@@ -379,7 +379,7 @@ package identity, and the documented entry points we are allowed to use.
   second, optional TCM for the Spine runtime's sync/cache pool, not implemented by the K3 BSP and
   declared low-impact by SpacemiT on their own forum), the **embodied scenario S8** was measured
   (`SCENARIO-EMBODIED-20260922.md`: detector->depth alone 113.06 ms/frame at 8.85 fps, and with the
-  2-request VLM service genuinely overlapped the frame loses 14.6 %, the detector stage 3.4x and the
+  2-request VLM service genuinely overlapped the frame loses 14.6 %, the detector stage 3.4 times and the
   service 39-47 % of its served rate), and the scenario matrix in `SCENARIO-VALIDATION-20260922.md`
   now carries eight entries with their numbers.
   `SCENARIO-PROGRAMME-20260922.md` is the scheme audit the operator asked for: what the current

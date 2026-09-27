@@ -2,8 +2,8 @@
 # The frozen scenario suite: one command that re-runs the self-contained scenarios against their
 # acceptance bands and writes a fresh evidence package.
 #
-#   scripts/scenarios.sh list       show the suite and each scenario's band
-#   scripts/scenarios.sh run        verify materials + build, run the suite on the board, seal results
+#   scripts/run.sh scenarios list   show the suite and each scenario's band
+#   scripts/run.sh scenarios run    verify materials + build, run the suite on the board, seal results
 #
 # Scenarios in the suite are the ones that run unattended: S10 (decision layer, board, numpy),
 # S12 (OCR chain, board, provider) and S11's metric step (host, from frozen embeddings). S9/S9.3 need
@@ -12,7 +12,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname "$0")" && pwd)
-ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)
+ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/../.." && pwd)
 WORKSPACE=$(CDPATH='' cd -- "$ROOT/../.." && pwd)
 BOARD=$WORKSPACE/hardware/k3-monitor/experiments/board.sh
 TOOLS=$ROOT/src/onnxruntime_project/tools

@@ -1219,7 +1219,8 @@ boundary and the same near-ties the margin gate failed to remove cleanly.
 
 ## 16. The frozen scenario suite, and what its first full run caught
 
-`scripts/scenarios.sh` freezes the unattended scenarios behind one command (`list` shows the bands,
+`scripts/scenarios.sh` (since 2026-09-27 reached as `scripts/run.sh scenarios`, the project's two-door
+contract) freezes the unattended scenarios behind one command (`list` shows the bands,
 `run` verifies materials, rebuilds, pushes the fixtures, runs the scenarios on the board and seals a
 fresh evidence package). First full run, 2026-09-23:
 

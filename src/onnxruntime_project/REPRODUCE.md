@@ -12,14 +12,14 @@ time while the work was done. It assumes the workspace layout of this repository
 | workspace toolchain | `spacemit-toolchain-linux-glibc-x86_64-v1.2.4/` (already in the workspace) |
 | sealed vendor package | `.local/k3-tools/riscv64/spacemit-ort.riscv64.2.0.6.tar.gz`; its sha256 is checked against `sources.lock.yaml` by `scripts/build.sh` |
 | board | Bianbu 4.0.6, ONNX Runtime 2.0.6, llama.cpp `0.1.7~a0+4`; the board must be **idle with 8/8 TCM blocks free** before any run |
-| board packages | `tesseract-ocr ffmpeg llm-sdk yolo-demo` (`materials.sh list` prints them) |
-| models and fixtures | `scripts/materials.sh fetch` |
+| board packages | `tesseract-ocr ffmpeg llm-sdk yolo-demo` (`scripts/run.sh materials list` prints them) |
+| models and fixtures | `scripts/run.sh materials fetch` |
 
 ## 1. Materials: one command, then verify
 
-    projects/onnxruntime/scripts/materials.sh list      # what each scenario needs, and its source
-    projects/onnxruntime/scripts/materials.sh fetch     # downloads anything missing, writes materials.lock
-    projects/onnxruntime/scripts/materials.sh verify    # digest check; prints verified=<n> missing=0 mismatched=0
+    projects/onnxruntime/scripts/run.sh materials list   # what each scenario needs, and its source
+    projects/onnxruntime/scripts/run.sh materials fetch  # downloads anything missing, writes materials.lock
+    projects/onnxruntime/scripts/run.sh materials verify # digest check; verified=<n> missing=0 mismatched=0
 
 Fixtures are **generated**, not downloaded, and their generators are the source of truth:
 
