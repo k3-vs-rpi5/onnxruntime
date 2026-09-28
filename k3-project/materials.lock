@@ -1,0 +1,9 @@
+# materials.lock - written by scripts/materials.sh fetch; verify with 'materials.sh verify'
+0c17cc6ed7ec697db6768c2db6dd22c4e816a12c68ed14ff4d764927338532f8  models/embed/Bge-Small-Zh-V1.5-Q4_K_M.gguf
+d64c751c09425ab44bcf4a2f224c98ebfb789a6caada1e7a5e19a325268ca899  models/embed/Qwen3-Embedding-0.6B-Q4_0.gguf
+4f10283b9214c3aca2c97ba2304f2b6675abcdeabb567788f91d42c7645b3f7b  models/embed/image_encoder.fp16.onnx
+c15fd36aa079618c10037d9ea3b37237d8a4147b9fc4f8325f32539437d38ae7  models/embed/nomic-embed-text-v2-moe-Q4_0.gguf
+bfa4def4894dd808880acd987d8b513aad5ea0a3f7b8f5ae23ec224d3d239d5c  models/ocr/PP-OCRv6_tiny_det_640x640.fp16.onnx
+702c9a0df10d1d46dceb961e927803e775a7265e926688c54220ba5fe75eb792  models/ocr/PP-OCRv6_tiny_rec_48x320.dynq.onnx
+0af71c2559cb11e1b288da20471e93676b61fec548c24345ffee6f5b74a82d63  models/ocr/PP-OCRv6_tiny_rec_b4_48x320.dynq.onnx
+c5cbe34ef40c29c4df07ed012bf96569cb69a2d2a01a07027e9f13cb832bd9cd  models/ocr/ppocrv6_tiny_dict.txt

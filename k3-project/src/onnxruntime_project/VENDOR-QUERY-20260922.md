@@ -1,0 +1,140 @@
+# 致 SpacemiT：ONNX Runtime 2.0.6 provider 的六项可复现问题（K3 / Bianbu 4.0.6）
+
+**环境**：K3 开发板（X100 cpu0-7 + A100 cpu8-15），Bianbu 4.0.6，kernel 6.18.3，ONNX Runtime
+`2.0.6`（deb：runtime `076d9e83…`、provider `d8fa3633…`；tarball：`93bb7560…`/`dcc95030…`），
+`onnxruntime_perf_test -e spacemit -x 8 -S 1 -c 1 -I -i "SPACEMIT_EP_INTRA_THREAD_NUM|8"`，
+`SPACEMIT_EP_DEBUG_PROFILE` 与 `-p`（per-node profile）用于归属判定，`spacemit-tcm-smi` 确认 AI 核占用。
+模型：官方 `yolo26n-depth.fp16.onnx`（我们的探针与它同形）。
+
+## 问题 1：能力检查按"连通分量"判定，孤立的受支持算子会被拒
+
+`Resize(mode=linear, coordinate_transformation_mode=half_pixel)` 在文档中列为受支持
+（`onnxruntime_ep_ops.md`：Resize 支持 `asymmetric`/`half_pixel` 与 `nearest`/`linear`）。实测：
+
+| 图 | provider 归属 |
+|---|---|
+| 只有一个 `Resize`（`sizes` 或 `scales` 形态、fp32 或 fp16、192→768） | **CPU EP 100%** |
+| 同上，但用你们 `pp_liteseg` 同款通道/尺寸（C=128 1→16、C=19 64→128） | **CPU EP 100%** |
+| `Conv` 之后接同一个 `Resize` | **被认领**（整图一个 Spine 子图，0 个 CPU 节点） |
+| 同上再包 Q/DQ | **同样被认领** |
+
+也就是说：**同一个算子、同样属性，只因所处碎片大小不同就被接受或被拒**。反证在你们自己的包里——
+`pp_liteseg.q.onnx` 的 7 个 `linear + half_pixel` Resize 全部被认领，并出现在
+`SPACEMIT_EP_DUMP_SUBGRAPHS` 导出的子图内；而 `yolo26n-depth.fp16.onnx` 里同形的 1 个被拒。
+
+**Q1**：这个"碎片必须足够大/必须挨着已认领算子"的规则是有意的吗？若是，能否给出可判定的条件
+（最小规模、连通性要求），以便我们在转换阶段预测，而不用靠试。
+
+## 问题 2：去掉不支持的算子把区域重新连通后，provider 反而慢 16%
+
+`yolo26n-depth` 的头部链条是 `Mul(Pow(Exp(Clip(x)), a), c)`，其中 **`Exp` 不在你们的支持清单里**。
+我们按"消除不支持算子可让区域连通"的思路改写成 `Exp → Pow(e, x)`（数值差 **0.03 fp16 ulp**）：
+
+| 指标 | 改写前 | 改写后 |
+|---|---|---|
+| 每帧 CPU 节点执行次数 | 15 | **8** |
+| CPU 占比（profile 内） | 18.4 % | **8.0 %** |
+| CPU 侧时间 | 12.46 ms | **6.14 ms** |
+| **无插桩单帧时间（-r 20，两次）** | **64.52 / 64.59 ms** | **74.93 / 74.83 ms** |
+
+回退确实按预测减少了，**但整帧慢了 16%**：被重新连通的 provider 区域比它替换掉的 CPU 碎片贵约 16 ms。
+同样的算术，两种执行路径差 16 ms。
+
+**Q2**：这是预期行为吗？能否解释该头部区域在 provider 上的执行为何比 CPU 路径更贵（布局转换？该区域
+未走 IME 矩阵单元？`Pow` 的实现？）——这是本项最大的单点损失。
+
+**Q3**：`Exp` 是故意不支持的吗？若是，推荐的等价替代是什么（`Pow(e,x)` 可用但如上所述并不划算）？
+
+## 问题 3：能力检查通过了、执行却崩溃（段错误）
+
+为绕开问题 1，我们把 `linear` Resize 改写成可分离插值（`Gather`+`Mul`+`Add`，索引/权重为常量）。
+各基本算子单独测试**全部正常**（`Gather` axis 2/3、int32/int64、负轴、广播 `Mul`），但该**组合**
+让 provider **段错误**（不是拒绝，是崩溃），在 24→48、48→96、192→768 三种尺寸上均复现：
+
+```
+$ SPACEMIT_EP_DEBUG_PROFILE=/tmp/t onnxruntime_perf_test <rewritten.onnx> -e spacemit -r 20 -x 8 -S 1 -c 1 -I \
+    -i "SPACEMIT_EP_INTRA_THREAD_NUM|8"
+Segmentation fault
+```
+
+**Q4**：`Gather` 组合触发的崩溃是否有已知限制/修复计划？能力检查若无法判定，希望至少是**拒绝**而不是崩溃。
+
+## 问题 4：`MatMul` 路径比 CPU EP 的等价算子慢 6.9 倍
+
+在 `yoloe-v8s-seg.dynq` 中，3 个 `Einsum`（方程 `bchw,bkc->bkhw`，即逐像素通道收缩）是 37.4 % 的帧时间
+（58.88 ms / 157.55 ms），而 `Einsum` 不在支持清单里。我们按恒等变换降级为
+`Reshape + MatMul + Reshape`（数值差 1.79e-07）：
+
+| 指标 | 改写前 | 改写后 |
+|---|---|---|
+| CPU 节点执行次数 | 12 | **7** |
+| CPU 占比 | 37.9 % | **0.1 %** |
+| **无插桩整帧** | **157.55 ms** | **544.35 ms** |
+| provider trace 中该三段耗时 | CPU EP 的 `Einsum` 合计 58.9 ms/帧 | **provider 的 `MatMul` 合计 ≈405 ms/帧** |
+
+即同样 0.7 GFLOP 的算术，provider 路径约为 **1.7 GOPS**。**Q5**：`MatMul` 在
+`[1,80,512] × [1,512,6400]`（及 `h=40/20` 的两档）这类形状上是否有已知的性能问题？是否建议改用其他形式
+（例如先转置到 `[b,c,k]`、或使用 `Gemm`、或调整 batch/通道布局）？
+
+## 问题 5：能力检查通过、首次推理崩溃（第二例）
+
+`superpoint_512x512_top512_batch1.q` 的 13.8 % 回退只在 1 个 `ReduceL2` 上。按恒等变换降级为
+`Sqrt(ReduceSum(x*x))`（数值**逐位一致**）后：ONNX checker 通过、CPU EP 正常、`-v` 显示**会话初始化成功**，
+但 **provider 在首次推理时段错误**。我们已排除的变量：基本算子组合（`Mul`/`ReduceSum(axes 作为输入)`/
+`Sqrt`）单独与组合均通过；同形状 `[1,256,64,64]` 纯 fp32 通过（4.07 ms）；同形状包 Q/DQ 通过（14.95 ms）；
+把归约轴从 1 改为 3 **同样崩溃**。**Q6**：这类"能力检查通过、执行崩溃"是否有可开启的诊断输出（例如把子图
+dump 提前到分区阶段）？我们在崩溃前拿不到 `SPACEMIT_EP_DUMP_SUBGRAPHS` 的任何输出。
+
+（另附：这两例的模型、改写脚本与全部探针都在证据目录 `model-alternatives/converter-r1/` 与
+`model-alternatives/converter-r2/` 下，可逐个复现。）
+
+## 问题 6：同进程多会话时，会话创建随机失败（同形状、同参数、前两轮正常）
+
+在一个进程内创建 N 个会话（我们的小型测试程序 `ort-two-session-pipeline` 的 `same` 模式，每个会话
+`SPACEMIT_EP_INTRA_THREAD_NUM|<8/N>`、`SPACEMIT_EP_INTER_THREAD_NUM|1`，8/N 个线程）时，**同一条命令行在
+连续多轮成功后随机失败于会话创建**：
+
+```
+SpacemiT EP init: Provider options key/value cannot be empty
+```
+
+当日两次，都是每形状第 3 轮、前两轮完全正常：`yolov8n 8x1`（前两轮 56.0/54.6 ms）与 `yolov8s 4x2`
+（前两轮 51.6/51.8 ms）；紧接着重跑同一条命令即成功。我们传给 provider 的键值对是固定的两条，
+没有空 key/value。**Q7**：这是 provider 侧已知的竞态吗？是否有诊断开关可以打印被拒绝的键值对？
+
+复现材料：`/root/k3-evidence/onnxruntime/multisession-20260922/run1/yolov8n.q-8x1-r3.log`、
+`run2/yolov8s.q-4x2-r3.log`，完整命令、模型 sha256 与板卡状态见同目录 `session.txt`
+（工具：`projects/onnxruntime/src/onnxruntime_project/tools/board-multisession-scaling.sh`）。
+
+## 附：我们已做但无改观的方向（供参考，避免重复建议）
+
+## 文档级问题（非 provider 缺陷，但影响复现）
+
+1. `solutions/aicomputer_solution/multi_stream_vision.md` 给出的源码下载地址
+   `https://github.com/spacemit-com/multi-stream-vision.git` **无法访问**（2026-09-22 实测：
+   GitHub API 对该仓库返回 `Not Found`，而 `spacemit-com/docs-ai` 返回 200）。我们改走文档推荐的
+   `apt install yolo-demo`（1.0.2）完成 12 路对照，结果与发布表相差 ±2.6 % 以内。
+2. `yolo-demo` 的 `-m <model>` 命令行参数**不会覆盖配置文件里的 `model.id`**：传 `-m yolov8s` 而配置
+   中 `model.id: yolov8n` 时，程序仍加载 `yolov8n`，且只在启动横幅（`current=...`）里体现。我们第一次
+   `yolov8s` 行因此无效并已作废重测。建议在 `--help` 或日志中明确"配置优先"。
+3. `yolo-demo` 未清理 TCM：SIGTERM 后**残留 1 块**（3 次中 2 次），SIGKILL 后**8 块全残留**（占用者
+   线程已不存在），随后任何一次启动都会以 `FileSource[0] Failed to init MPP pipeline` 失败；必须用
+   文档里的 `spacemit-tcm-smi -c` 清理。已在我们的运行脚本里固化为前置检查。
+
+- `onnxslim 0.1.87` 化简该模型：算子数与体积不变，回退 18.7% vs 原始 18.4%（无改观）；
+- `Resize` 属性归一化（去掉 `nearest_mode=floor`、`cubic_coeff_a`）、`scales→sizes` 形态归一化：
+  数值**逐位一致**，回退不变；
+- fp16 的 linear Resize 用 fp32 Cast 包裹：数值 0.50 fp16 ulp，回退不变（并多 1 个 CPU 节点）；
+- `-o 0/2/99`、并行执行器、arena/pattern、spinning、env allocators、`SPACEMIT_EP_*` 线程与绑核、
+  `INTER×INTRA` 多流、X100 分担：均无改观或更差（X100 跑同类 int8 图慢 97 倍）。
+
+## 复现材料（随附）
+
+- 探针：`Resize` 单算子与 `Conv+Resize` 对照、`Exp→Pow` 改写模型、Gather 改写模型；
+- 归属证据：ORT per-node profile（`CPUExecutionProvider` vs `SpaceMITExecutionProvider`）与
+  `SPACEMIT_EP_DEBUG_PROFILE` trace；
+- 全部原始文件与 sha256 见证据目录
+  `/root/k3-evidence/onnxruntime/baseline-20260921/model-alternatives/`（含
+  `converter-r1/summary.txt`、`summary-round2.txt`）。
+
+如需要，我们可以把任一探针打包成你们可直接运行的最小复现包。
